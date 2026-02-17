@@ -10,7 +10,7 @@ interface HUDProps {
   gameState: GameState;
   player: Player;
   onDebugToggle: (checked: boolean) => void;
-  timerRef: React.RefObject<HTMLDivElement | null>;
+  timerRef: React.RefObject<HTMLDivElement>;
   floatingTexts: FloatingText[];
 }
 
