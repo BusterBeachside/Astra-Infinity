@@ -43,10 +43,18 @@ const DEFAULT_PROGRESS: UserProgress = {
         durationSlow: 0,
         durationShrink: 0,
         permDoubleCoins: false,
-        showboat: false
+        showboat: false,
+        grazeBonus: 0
     },
     unlockedTrails: ['default'],
-    equippedTrail: 'default'
+    equippedTrail: 'default',
+    tutorialsSeen: {},
+    equippedSkin: 'default',
+    unlockedSkins: ['default'],
+    deathHistory: [],
+    activeChallenges: [],
+    lastChallengeDate: '',
+    progressionMissionIndex: 0
 };
 
 export const getUserProgress = (): UserProgress => {
@@ -58,9 +66,15 @@ export const getUserProgress = (): UserProgress => {
             return { 
                 ...DEFAULT_PROGRESS, 
                 ...parsed, 
-                upgrades: { ...DEFAULT_PROGRESS.upgrades, ...parsed.upgrades },
+                upgrades: { ...DEFAULT_PROGRESS.upgrades, ...(parsed.upgrades || {}) },
                 unlockedTrails: parsed.unlockedTrails || DEFAULT_PROGRESS.unlockedTrails,
-                equippedTrail: parsed.equippedTrail || DEFAULT_PROGRESS.equippedTrail
+                equippedTrail: parsed.equippedTrail || DEFAULT_PROGRESS.equippedTrail,
+                tutorialsSeen: parsed.tutorialsSeen || DEFAULT_PROGRESS.tutorialsSeen,
+                equippedSkin: parsed.equippedSkin || DEFAULT_PROGRESS.equippedSkin,
+                unlockedSkins: parsed.unlockedSkins || DEFAULT_PROGRESS.unlockedSkins,
+                deathHistory: parsed.deathHistory || DEFAULT_PROGRESS.deathHistory,
+                activeChallenges: parsed.activeChallenges || DEFAULT_PROGRESS.activeChallenges,
+                lastChallengeDate: parsed.lastChallengeDate || DEFAULT_PROGRESS.lastChallengeDate
             };
         }
     } catch (e) {
@@ -78,6 +92,7 @@ export const saveUserProgress = (progress: UserProgress) => {
 const DEFAULT_SETTINGS: GameSettings = {
     reduceMotion: false,
     showFps: false,
+    showHitboxes: false,
     frameLimit: 0 // 0 = Uncapped
 };
 

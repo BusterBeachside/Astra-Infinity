@@ -1,12 +1,13 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Player, Obstacle, Star, PowerUp, Particle, GameState, UserProgress, LoadoutState, GameSettings, FloatingText, TrailType } from '../types';
-import { CONSTANTS, COLORS } from '../constants';
+import { Player, Obstacle, Star, PowerUp, Particle, GameState, UserProgress, LoadoutState, GameSettings, FloatingText, TrailType, GameMode } from '../types';
+import { CONSTANTS, COLORS, GRAZE_CONFIG } from '../constants';
 import * as Logic from '../services/gameLogic';
 import * as Storage from '../services/storage';
 import { drawNetworkBackground, drawStars, drawFloor, drawWarpBackground } from '../services/renderBackground';
-import { clearCanvas, drawObstacle, drawPowerUp, drawParticles, drawPlayer } from '../services/renderGame';
+import { clearCanvas, drawObstacle, drawPowerUp, drawParticles, drawPlayer, drawHitbox } from '../services/renderGame';
 import { audioManager } from '../services/audioManager';
+import { ChallengeService } from '../services/challengeService';
 
 import HUD from './HUD';
 import SplashScreen from './ui/SplashScreen';
@@ -18,14 +19,51 @@ import OptionsScreen from './ui/OptionsScreen';
 import ShopScreen from './ui/ShopScreen';
 import LoadoutScreen from './ui/LoadoutScreen';
 import CreditsScreen from './ui/CreditsScreen';
+import TutorialOverlay from './ui/TutorialOverlay';
+import ChallengesOverlay from './ui/ChallengesOverlay';
+import HeatmapOverlay from './ui/HeatmapOverlay';
 
 type ViewState = 'splash' | 'menu' | 'game' | 'gameover' | 'highscore_entry' | 'highscore_board' | 'options' | 'shop' | 'loadout' | 'credits';
+
+const getInitialGameState = (width: number, height: number): GameState => ({
+    isActive: false,
+    waitingForInput: false,
+    isGameOver: false,
+    gameMode: 'normal',
+    width, 
+    height,
+    startTime: 0,
+    elapsedTime: 0,
+    timeOffset: 0,
+    lastSpawnTime: 0,
+    lastPowerupTime: 0,
+    lastCheckpointMinute: 0,
+    titanCooldown: 0,
+    titansSurvived: 0,
+    compressionState: 0,
+    compressionProgress: 0,
+    currentTimeScale: 1.0,
+    targetTimeScale: 1.0,
+    highScore: 0,
+    coinsEarned: 0,
+    isWarpingIn: false,
+    isPaused: false,
+    currentRisk: 0,
+    coinBreakdown: undefined,
+    showboatCoins: 0,
+    totalShowboats: 0,
+    powerupsCollected: 0,
+    grazeTime: 0
+});
 
 const GameCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timerRef = useRef<HTMLDivElement>(null);
   const fpsRef = useRef<HTMLDivElement>(null);
   const warpRef = useRef<HTMLDivElement>(null);
+  const riskBarRef = useRef<HTMLDivElement>(null);
+  const riskTextRef = useRef<HTMLDivElement>(null);
+  const riskContainerRef = useRef<HTMLDivElement>(null);
   
   const animationFrameId = useRef<number>(0);
   const lastFrameTime = useRef<number>(0); // Time of last processed frame
@@ -35,7 +73,8 @@ const GameCanvas: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   
   const viewRef = useRef<ViewState>('splash');
-  const pendingModeRef = useRef<'normal' | 'hardcore'>('normal');
+  const pendingModeRef = useRef<GameMode>('normal');
+  const keysPressed = useRef<Set<string>>(new Set());
 
   // Persistent User Progress - synced with Ref for GameLoop access
   const userProgressRef = useRef<UserProgress>(Storage.getUserProgress());
@@ -46,7 +85,17 @@ const GameCanvas: React.FC = () => {
   const [settings, setSettings] = useState<GameSettings>(settingsRef.current);
 
   // Shop State Management
-  const [shopState, setShopState] = useState<{ tab: 'modules' | 'trails', scroll: number }>({ tab: 'modules', scroll: 0 });
+  const [shopState, setShopState] = useState<{ tab: 'modules' | 'trails' | 'skins', scroll: number }>({ tab: 'modules', scroll: 0 });
+
+  // Tutorial State
+  const [activeTutorial, setActiveTutorial] = useState<{ id: string; title: string; message: string } | null>(null);
+
+  const [showChallenges, setShowChallenges] = useState(false);
+  const [heatmapSettings, setHeatmapSettings] = useState({ visible: false, showNormal: true, showHardcore: true });
+
+  const lastGrazeSfxTime = useRef<number>(0);
+  const accumulatedGrazeCoins = useRef<number>(0);
+  const visualRiskRef = useRef<number>(0);
 
   const setUserProgress = (p: UserProgress) => {
       setUserProgressState(p);
@@ -64,33 +113,13 @@ const GameCanvas: React.FC = () => {
   const activeLoadout = useRef<LoadoutState>({ startShield: false, rocketBoost: false, doubleCoins: false });
 
   // Use Refs for mutable game state
-  const gameStateRef = useRef<GameState>({
-    isActive: false,
-    waitingForInput: false,
-    isGameOver: false,
-    gameMode: 'normal',
-    width: 100, 
-    height: 100,
-    startTime: 0,
-    elapsedTime: 0,
-    timeOffset: 0,
-    lastSpawnTime: 0,
-    lastPowerupTime: 0,
-    lastCheckpointMinute: 0,
-    titanCooldown: 0,
-    titansSurvived: 0,
-    compressionState: 0,
-    compressionProgress: 0,
-    currentTimeScale: 1.0,
-    targetTimeScale: 1.0,
-    highScore: 0,
-    coinsEarned: 0,
-    isWarpingIn: false
-  });
+  const gameStateRef = useRef<GameState>(getInitialGameState(100, 100));
 
   const playerRef = useRef<Player>({
     x: 0, y: 0, radius: CONSTANTS.PLAYER_BASE_RADIUS, baseRadius: CONSTANTS.PLAYER_BASE_RADIUS,
-    targetX: 0, targetY: 0, lerp: 0.25, shields: 0, shrinkTimer: 0, slowTimer: 0, trail: [], trailType: 'default'
+    targetX: 0, targetY: 0, lerp: 0.25, shields: 0, shrinkTimer: 0, slowTimer: 0, trail: [], trailType: 'default',
+    grazeMultiplier: 1,
+    skinId: 'default'
   });
 
   const starsRef = useRef<Star[]>([]);
@@ -103,12 +132,38 @@ const GameCanvas: React.FC = () => {
     view: 'splash' as ViewState,
     showCheckpoint: false,
     triggerRender: 0,
-    isWaitingForStart: false
+    isWaitingForStart: false,
+    isPaused: false
   });
   
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
 
   const [hsInitials, setHsInitials] = useState('');
+
+  const togglePause = useCallback(() => {
+      if (viewRef.current !== 'game' || gameStateRef.current.isGameOver || gameStateRef.current.waitingForInput) return;
+      
+      const newPaused = !gameStateRef.current.isPaused;
+      gameStateRef.current.isPaused = newPaused;
+      setUiState(prev => ({ ...prev, isPaused: newPaused }));
+      
+      if (newPaused) {
+          audioManager.playSfx('menu_open');
+          gameStateRef.current.pauseStartTime = Date.now();
+      } else {
+          audioManager.playSfx('menu_close');
+          
+          if (gameStateRef.current.pauseStartTime) {
+              const pauseDuration = Date.now() - gameStateRef.current.pauseStartTime;
+              gameStateRef.current.startTime += pauseDuration;
+              gameStateRef.current.lastSpawnTime += pauseDuration;
+              gameStateRef.current.lastPowerupTime += pauseDuration;
+          }
+          gameStateRef.current.pauseStartTime = undefined;
+          
+          lastFrameTime.current = Date.now(); // Reset frame time to prevent huge delta
+      }
+  }, []);
 
   const addFloatingText = (x: number, y: number, text: string, subText?: string, color: string = '#ffffff') => {
       const id = Date.now().toString() + Math.random().toString();
@@ -148,30 +203,56 @@ const GameCanvas: React.FC = () => {
         gameStateRef.current.highScore = scores[0].score;
     }
 
+    // Initialize Challenges
+    const today = new Date().toISOString().split('T')[0];
+    if (userProgressRef.current.lastChallengeDate !== today) {
+        const daily = ChallengeService.generateDailyChallenges(userProgressRef.current.lastChallengeDate, []);
+        const repeatable = ChallengeService.generateRepeatableChallenges(3, daily);
+        const newProgress = {
+            ...userProgressRef.current,
+            activeChallenges: [...daily, ...repeatable],
+            lastChallengeDate: today
+        };
+        setUserProgress(newProgress);
+    }
+
     const handleResize = () => {
-      if (containerRef.current && canvasRef.current) {
-        const { clientWidth, clientHeight } = containerRef.current;
-        canvasRef.current.width = clientWidth;
-        canvasRef.current.height = clientHeight;
-        gameStateRef.current.width = clientWidth;
-        gameStateRef.current.height = clientHeight;
+      // Use window.innerHeight/Width as fallback if container is weirdly zero
+      // This helps on mobile where 100dvh might be tricky with iframes
+      const width = containerRef.current?.clientWidth || window.innerWidth;
+      const height = containerRef.current?.clientHeight || window.innerHeight;
+
+      if (canvasRef.current) {
+        canvasRef.current.width = width;
+        canvasRef.current.height = height;
+      }
+      
+      gameStateRef.current.width = width;
+      gameStateRef.current.height = height;
         
-        // Center-Bottom alignment fix on resize
-        if (!gameStateRef.current.isActive) {
-           playerRef.current.x = clientWidth / 2;
-           playerRef.current.y = clientHeight * 0.75;
-           playerRef.current.targetX = clientWidth / 2;
-           playerRef.current.targetY = clientHeight * 0.75;
+      // Center-Bottom alignment fix on resize
+      if (!gameStateRef.current.isActive) {
+           playerRef.current.x = width / 2;
+           playerRef.current.y = height * 0.75;
+           playerRef.current.targetX = width / 2;
+           playerRef.current.targetY = height * 0.75;
            
            // Force render to update "Click to engage" position
            setUiState(prev => ({...prev, triggerRender: prev.triggerRender + 1}));
-        }
-
-        starsRef.current = Logic.initStars(clientWidth, clientHeight);
       }
+
+      starsRef.current = Logic.initStars(width, height);
     };
     window.addEventListener('resize', handleResize);
+    // Call resize on a slight delay to allow layout to settle (fixes mobile itch issue)
+    setTimeout(handleResize, 100);
+    setTimeout(handleResize, 500);
     handleResize(); 
+
+    // Ensure progression mission is active on load
+    const p = userProgressRef.current;
+    ChallengeService.ensureProgressionMission(p);
+    setUserProgress({...p});
 
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -187,14 +268,19 @@ const GameCanvas: React.FC = () => {
       setView('menu');
   };
 
-  const initGameSequence = (mode: 'normal' | 'hardcore') => {
+  const initGameSequence = (mode: GameMode) => {
       playClick();
+      if (mode === 'practice') {
+          activeLoadout.current = { startShield: false, rocketBoost: false, doubleCoins: false };
+          startGame('practice');
+          return;
+      }
       pendingModeRef.current = mode;
       // Show loadout screen for both modes now
       setView('loadout');
   };
 
-  const startGame = (mode: 'normal' | 'hardcore') => {
+  const startGame = (mode: GameMode) => {
     // Determine start time based on Rocket Boost
     const startOffset = activeLoadout.current.rocketBoost ? 60 : 0;
     
@@ -203,14 +289,13 @@ const GameCanvas: React.FC = () => {
     audioManager.stopMusic();
 
     let currentBest = 0;
-    const scores = Storage.getHighScores(mode);
+    const scores = (mode === 'normal' || mode === 'hardcore') ? Storage.getHighScores(mode) : [];
     if (scores.length > 0) currentBest = scores[0].score;
 
     gameStateRef.current = {
-      ...gameStateRef.current,
+      ...getInitialGameState(width, height),
       isActive: true,
       waitingForInput: true, 
-      isGameOver: false,
       gameMode: mode,
       startTime: 0, 
       elapsedTime: startOffset,
@@ -218,15 +303,7 @@ const GameCanvas: React.FC = () => {
       lastSpawnTime: Date.now(),
       lastPowerupTime: Date.now(),
       lastCheckpointMinute: Math.floor(startOffset / 60),
-      compressionState: 0,
-      compressionProgress: 0,
-      currentTimeScale: 1.0,
-      targetTimeScale: 1.0,
-      titanCooldown: 0,
-      titansSurvived: 0,
       highScore: currentBest,
-      coinsEarned: 0,
-      isWarpingIn: false // Default false, activated on click
     };
 
     obstaclesRef.current = [];
@@ -234,8 +311,14 @@ const GameCanvas: React.FC = () => {
     particlesRef.current = [];
     starsRef.current = Logic.initStars(width, height);
     
+    accumulatedGrazeCoins.current = 0;
+    visualRiskRef.current = 0;
+    
     // Reset Player
     const initialShields = activeLoadout.current.startShield ? 1 : 0;
+    
+    // Ensure we have a progression mission active
+    ChallengeService.ensureProgressionMission(userProgressRef.current);
     
     playerRef.current = {
       ...playerRef.current,
@@ -247,15 +330,16 @@ const GameCanvas: React.FC = () => {
       shrinkTimer: 0, 
       slowTimer: 0,
       trail: [],
-      trailType: userProgressRef.current.equippedTrail || 'default'
+      trailType: userProgressRef.current.equippedTrail || 'default',
+      skinId: userProgressRef.current.equippedSkin || 'default'
     };
 
-    setUiState(prev => ({ ...prev, isWaitingForStart: true }));
+    setUiState(prev => ({ ...prev, isWaitingForStart: true, isPaused: false }));
     setView('game');
     lastFrameTime.current = Date.now();
   };
   
-  const startPreview = (trailId: TrailType, currentTab: 'modules' | 'trails', currentScroll: number) => {
+  const startPreview = (itemId: string, currentTab: 'modules' | 'trails' | 'skins', currentScroll: number) => {
       const { width, height } = gameStateRef.current;
       audioManager.stopMusic();
 
@@ -263,18 +347,12 @@ const GameCanvas: React.FC = () => {
       setShopState({ tab: currentTab, scroll: currentScroll });
       
       gameStateRef.current = {
-          ...gameStateRef.current,
+          ...getInitialGameState(width, height),
           isActive: true,
           waitingForInput: false,
           isGameOver: false,
           gameMode: 'preview',
           startTime: Date.now(),
-          elapsedTime: 0,
-          currentTimeScale: 1.0,
-          targetTimeScale: 1.0,
-          compressionState: 0,
-          compressionProgress: 0,
-          isWarpingIn: false
       };
       
       obstaclesRef.current = [];
@@ -282,6 +360,9 @@ const GameCanvas: React.FC = () => {
       particlesRef.current = [];
       starsRef.current = Logic.initStars(width, height);
       
+      const isTrail = currentTab === 'trails';
+      const isSkin = currentTab === 'skins';
+
       playerRef.current = {
           ...playerRef.current,
           x: width / 2,
@@ -292,10 +373,11 @@ const GameCanvas: React.FC = () => {
           shrinkTimer: 0,
           slowTimer: 0,
           trail: [],
-          trailType: trailId
+          trailType: isTrail ? (itemId as TrailType) : (userProgressRef.current.equippedTrail || 'default'),
+          skinId: isSkin ? itemId : (userProgressRef.current.equippedSkin || 'default')
       };
       
-      setUiState(prev => ({ ...prev, isWaitingForStart: false }));
+      setUiState(prev => ({ ...prev, isWaitingForStart: false, isPaused: false }));
       setView('game');
       lastFrameTime.current = Date.now();
       audioManager.playGameTheme();
@@ -331,16 +413,31 @@ const GameCanvas: React.FC = () => {
     gs.isActive = false;
     gs.isGameOver = true;
     
+    // Calculate final elapsed time
+    if (!gs.waitingForInput && gs.startTime > 0) {
+        gs.elapsedTime = ((Date.now() - gs.startTime) / 1000) + gs.timeOffset;
+    }
+
     // Calculate Coins
     const breakdown = Logic.calculateCoins(
         gs.elapsedTime, 
         gs.gameMode, 
         activeLoadout.current.doubleCoins,
         userProgressRef.current.upgrades.permDoubleCoins,
-        gs.titansSurvived
+        gs.titansSurvived,
+        (gs as any).coinBreakdown?.grazeCoins || 0,
+        gs.showboatCoins || 0
     );
     gs.coinBreakdown = breakdown;
     gs.coinsEarned = breakdown.total;
+
+    // Update Challenges one last time with final stats
+    if (gs.gameMode !== 'preview' && gs.gameMode !== 'practice') {
+        // Update progress for single-run missions (survive_single, collect_coins_single, etc.)
+        ChallengeService.updateProgress(userProgressRef.current, gs, 0);
+        // Track the final bulk coin gain for cumulative missions
+        ChallengeService.trackCoinGain(userProgressRef.current, breakdown.total);
+    }
 
     // Save Progress
     const newProgress = { ...userProgressRef.current, coins: userProgressRef.current.coins + breakdown.total };
@@ -370,12 +467,16 @@ const GameCanvas: React.FC = () => {
     setTimeout(() => {
         const mode = gs.gameMode;
         // Check mode is valid before checking high score
-        const isHigh = mode !== 'preview' && Storage.checkIsHighScore(gs.elapsedTime, mode);
-        
-        if (isHigh) {
-            const lastInitials = localStorage.getItem('stellar_last_initials') || '';
-            setHsInitials(lastInitials);
-            setView('highscore_entry');
+        if (mode === 'normal' || mode === 'hardcore') {
+            const isHigh = Storage.checkIsHighScore(gs.elapsedTime, mode);
+            
+            if (isHigh) {
+                const lastInitials = localStorage.getItem('stellar_last_initials') || '';
+                setHsInitials(lastInitials);
+                setView('highscore_entry');
+            } else {
+                setView('gameover');
+            }
         } else {
             setView('gameover');
         }
@@ -388,7 +489,7 @@ const GameCanvas: React.FC = () => {
      const gs = gameStateRef.current;
      const mode = gs.gameMode;
 
-     if (mode === 'preview') return;
+     if (mode === 'preview' || mode === 'practice') return;
      
      localStorage.setItem('stellar_last_initials', hsInitials.toUpperCase());
 
@@ -402,12 +503,17 @@ const GameCanvas: React.FC = () => {
      setView('gameover');
   };
 
-  const handleInteraction = useCallback((clientX: number, clientY: number, isTap: boolean) => {
+  const handleInteraction = useCallback((clientX: number, clientY: number, isTap: boolean, isTouch: boolean = false) => {
     if (!canvasRef.current) return;
     
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
+    let x = clientX - rect.left;
+    let y = clientY - rect.top;
+
+    // Mobile Offset: Hover just above touch point so finger doesn't obscure ship
+    if (isTouch && !gameStateRef.current.waitingForInput) {
+        y -= 60; 
+    }
 
     const player = playerRef.current;
     const gs = gameStateRef.current;
@@ -433,10 +539,18 @@ const GameCanvas: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => handleInteraction(e.clientX, e.clientY, false);
-    const onTouchMove = (e: TouchEvent) => handleInteraction(e.touches[0].clientX, e.touches[0].clientY, false);
-    const onTouchStart = (e: TouchEvent) => handleInteraction(e.touches[0].clientX, e.touches[0].clientY, true);
-    const onMouseDown = (e: MouseEvent) => handleInteraction(e.clientX, e.clientY, true);
+    const onMouseMove = (e: MouseEvent) => handleInteraction(e.clientX, e.clientY, false, false);
+    const onTouchMove = (e: TouchEvent) => {
+        if (e.touches.length > 0) {
+            handleInteraction(e.touches[0].clientX, e.touches[0].clientY, false, true);
+        }
+    };
+    const onTouchStart = (e: TouchEvent) => {
+        if (e.touches.length > 0) {
+            handleInteraction(e.touches[0].clientX, e.touches[0].clientY, true, true);
+        }
+    };
+    const onMouseDown = (e: MouseEvent) => handleInteraction(e.clientX, e.clientY, true, false);
 
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -444,23 +558,68 @@ const GameCanvas: React.FC = () => {
     window.addEventListener('mousedown', onMouseDown);
 
     const onKeyDown = (e: KeyboardEvent) => {
+        keysPressed.current.add(e.key.toLowerCase());
+
+        // Toggle Debug: Ctrl + D + End
+        if (e.ctrlKey && keysPressed.current.has('d') && e.key === 'End') {
+            e.preventDefault();
+            debugMode.current = !debugMode.current;
+            setUiState(p => ({...p, triggerRender: p.triggerRender+1}));
+            audioManager.playSfx(debugMode.current ? 'menu_open' : 'menu_close');
+            console.log("Debug Mode:", debugMode.current);
+            return;
+        }
+
         if (viewRef.current === 'highscore_entry' && e.key === 'Enter') {
             submitHighScore();
             return;
         }
 
+        if (e.key === 'Escape') {
+            togglePause();
+            return;
+        }
+
         if (!debugMode.current || !gameStateRef.current.isActive) return;
-        const key = e.key.toLowerCase();
-        if (key === 'z') { playerRef.current.shields++; setUiState(p => ({...p, triggerRender: p.triggerRender+1})); }
-        if (key === 'x') { playerRef.current.slowTimer = 10; setUiState(p => ({...p, triggerRender: p.triggerRender+1})); }
-        if (key === 'c') { playerRef.current.shrinkTimer = 30; setUiState(p => ({...p, triggerRender: p.triggerRender+1})); }
-        if (key === 'a') {
-            const currentMin = Math.floor(gameStateRef.current.elapsedTime / 60);
-            const targetTime = (currentMin + 1) * 60 - 0.5;
-            gameStateRef.current.timeOffset += (targetTime - gameStateRef.current.elapsedTime);
+
+        // Debug Commands (Shift + 1-5)
+        if (e.shiftKey) {
+            const player = playerRef.current;
+            const gs = gameStateRef.current;
+            
+            switch(e.code) {
+                case 'Digit1': // Slow
+                    player.slowTimer = 10;
+                    audioManager.playSfx('powerup_slow');
+                    break;
+                case 'Digit2': // Shield
+                    player.shields++;
+                    audioManager.playSfx('powerup_shield');
+                    break;
+                case 'Digit3': // Tiny
+                    player.shrinkTimer = 10;
+                    audioManager.playSfx('powerup_shrink');
+                    break;
+                case 'Digit4': // Timer jump
+                    const currentMin = Math.floor(gs.elapsedTime / 60);
+                    const targetTime = (currentMin + 1) * 60 - 0.5;
+                    gs.timeOffset += (targetTime - gs.elapsedTime);
+                    break;
+                case 'Digit5': // Coins
+                    userProgressRef.current.coins += 1000;
+                    setUserProgress({...userProgressRef.current});
+                    audioManager.playSfx('buy');
+                    break;
+            }
         }
     };
+
+    const onKeyUp = (e: KeyboardEvent) => {
+        keysPressed.current.delete(e.key.toLowerCase());
+    };
+
     window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
 
     return () => {
       window.removeEventListener('mousemove', onMouseMove);
@@ -468,8 +627,96 @@ const GameCanvas: React.FC = () => {
       window.removeEventListener('touchstart', onTouchStart);
       window.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
     };
-  }, [handleInteraction, hsInitials]);
+  }, [handleInteraction, hsInitials, togglePause, setUserProgress]);
+
+  useEffect(() => {
+    if (uiState.view === 'gameover' && !activeTutorial) {
+        const progress = userProgressRef.current;
+        if (!progress.tutorialsSeen['coins']) {
+            setActiveTutorial({
+                id: 'coins',
+                title: 'MISSION DEBRIEF',
+                message: 'Survival time earns COINS. Use them in the SHOP to upgrade your ship.'
+            });
+            const newProgress = { 
+                ...progress, 
+                tutorialsSeen: { ...progress.tutorialsSeen, 'coins': true } 
+            };
+            setUserProgress(newProgress);
+            audioManager.playSfx('menu_open');
+        }
+    }
+  }, [uiState.view, activeTutorial]);
+
+  const checkTutorials = (gs: GameState) => {
+      if (gs.gameMode === 'preview' || gs.isPaused || activeTutorial) return;
+
+      const progress = userProgressRef.current;
+      const seen = progress.tutorialsSeen || {};
+      const now = gs.elapsedTime;
+
+      let tutorialId = '';
+      let title = '';
+      let message = '';
+
+      if (gs.gameMode === 'hardcore') {
+          if (!seen['hardcore_intro'] && now > 0.5) {
+              tutorialId = 'hardcore_intro';
+              title = 'HARDCORE MODE ENGAGED';
+              message = 'No powerups. Increased spawn rates. 3x Coin Multiplier. Good luck.';
+          }
+      } else {
+          // Normal Mode Tutorials
+          if (!seen['intro'] && now > 0.5) {
+              tutorialId = 'intro';
+              title = 'MISSION START';
+              message = 'Drag to pilot your ship. Avoid red obstacles. Survive as long as possible.';
+          } else if (!seen['powerup'] && now > 15) {
+              tutorialId = 'powerup';
+              title = 'SUPPLY DROP DETECTED';
+              message = 'Collect colored modules for temporary upgrades. Green=Shield, Blue=Slow, Yellow=Shrink.';
+          } else if (!seen['floor_hazard'] && gs.compressionState === 1) {
+              tutorialId = 'floor_hazard';
+              title = 'ENVIRONMENTAL HAZARD';
+              message = 'Space compression detected. Avoid the rising floor boundary.';
+          } else if (!seen['diagonal'] && now > 60) {
+              tutorialId = 'diagonal';
+              title = 'WARNING: ANOMALY DETECTED';
+              message = 'Debris patterns changing. Watch the corners.';
+          } else if (!seen['seeker'] && now > 120) {
+              tutorialId = 'seeker';
+              title = 'THREAT ALERT: SEEKER DRONES';
+              message = 'Enemy units locking on. Evasive maneuvers recommended.';
+          } else if (!seen['titan'] && now > CONSTANTS.TITAN_START_TIME) {
+              tutorialId = 'titan';
+              title = 'WARNING: TITAN CLASS DETECTED';
+              message = 'Massive pursuer detected. Outlast its energy reserves and evade the final detonation.';
+          } else if (!seen['side_seeker'] && now > 240) {
+              tutorialId = 'side_seeker';
+              title = 'WARNING: LATERAL INCURSION';
+              message = 'Enemies attacking from flanks.';
+          }
+      }
+
+      if (tutorialId) {
+          // Trigger Tutorial
+          gs.isPaused = true;
+          setUiState(prev => ({ ...prev, isPaused: true }));
+          
+          setActiveTutorial({ id: tutorialId, title, message });
+          
+          // Mark as seen immediately so it doesn't trigger again
+          const newProgress = { 
+              ...progress, 
+              tutorialsSeen: { ...seen, [tutorialId]: true } 
+          };
+          setUserProgress(newProgress);
+          
+          audioManager.playSfx('menu_open'); 
+      }
+  };
 
   const update = (timestamp: number) => {
     if (!canvasRef.current) return;
@@ -520,10 +767,14 @@ const GameCanvas: React.FC = () => {
     const player = playerRef.current;
     
     if (gs.isActive) {
-        gs.targetTimeScale = player.slowTimer > 0 ? 0.4 : 1.0;
-        const lerpSpeed = dtRawClamped * 0.5;
-        if (gs.currentTimeScale < gs.targetTimeScale) gs.currentTimeScale = Math.min(gs.targetTimeScale, gs.currentTimeScale + lerpSpeed);
-        if (gs.currentTimeScale > gs.targetTimeScale) gs.currentTimeScale = Math.max(gs.targetTimeScale, gs.currentTimeScale - lerpSpeed);
+        checkTutorials(gs);
+        
+        if (!gs.isPaused) {
+            gs.targetTimeScale = player.slowTimer > 0 ? 0.4 : 1.0;
+            const lerpSpeed = dtRawClamped * 0.5;
+            if (gs.currentTimeScale < gs.targetTimeScale) gs.currentTimeScale = Math.min(gs.targetTimeScale, gs.currentTimeScale + lerpSpeed);
+            if (gs.currentTimeScale > gs.targetTimeScale) gs.currentTimeScale = Math.max(gs.targetTimeScale, gs.currentTimeScale - lerpSpeed);
+        }
     }
     
     if (warpRef.current) {
@@ -531,7 +782,23 @@ const GameCanvas: React.FC = () => {
         warpRef.current.style.opacity = warpOpacity.toString();
     }
 
-    const effectiveDt = dtRawClamped * gs.currentTimeScale;
+    // Effective DT is 0 if paused
+    const effectiveDt = (gs.isPaused) ? 0 : dtRawClamped * gs.currentTimeScale;
+
+    // Lerp Visual Risk
+    const riskLerp = 1 - Math.exp(-10 * dtRawClamped); // Faster lerp (was 5)
+    visualRiskRef.current += (gs.currentRisk - visualRiskRef.current) * riskLerp;
+
+    // Update Risk Meter DOM
+    if (riskContainerRef.current && riskBarRef.current && riskTextRef.current) {
+        if (gs.gameMode !== 'practice' && visualRiskRef.current > 0.5) {
+            riskContainerRef.current.style.opacity = '1';
+            riskBarRef.current.style.width = `${visualRiskRef.current}%`;
+            riskTextRef.current.innerText = `RISK LEVEL ${Math.floor(visualRiskRef.current)}%`;
+        } else {
+            riskContainerRef.current.style.opacity = '0';
+        }
+    }
 
     clearCanvas(ctx, gs.width, gs.height);
 
@@ -556,7 +823,7 @@ const GameCanvas: React.FC = () => {
     drawFloor(ctx, gs);
 
     // --- GAMEPLAY UPDATE BLOCK ---
-    if (gs.isActive && !gs.waitingForInput) {
+    if (gs.isActive && !gs.waitingForInput && !gs.isPaused) {
       
       const prevSlow = player.slowTimer;
       const prevShrink = player.shrinkTimer;
@@ -617,16 +884,16 @@ const GameCanvas: React.FC = () => {
           }
       }
 
-      Logic.updatePlayer(player, gs.width, gs.height, dtRawClamped);
-      
-      const currSlow = player.slowTimer;
-      const currShrink = player.shrinkTimer;
-
-      if (prevSlow > 0 && currSlow <= 0) audioManager.playSfx('slow_up');
-      if (prevShrink > 0 && currShrink <= 0) audioManager.playSfx('shrink_up');
-
-      if (Math.ceil(prevSlow) !== Math.ceil(currSlow) || Math.ceil(prevShrink) !== Math.ceil(currShrink)) {
-         setUiState(prev => ({ ...prev, triggerRender: prev.triggerRender + 1 }));
+      // --- GRAZING LOGIC ---
+      if (gs.gameMode !== 'preview') {
+          // Logic moved to gameLogic.ts updatePlayer, but we need to handle particle spawning here if returned
+          // However, updatePlayer is called earlier. Let's check if we need to sync anything.
+          // Actually, updatePlayer in gameLogic.ts handles risk update and coin calculation.
+          // But wait, updatePlayer is called above at line ~866:
+          // const playerUpdateResult = Logic.updatePlayer(...)
+          
+          // We need to capture the result from updatePlayer call earlier.
+          // Let's go back and modify where updatePlayer is called.
       }
 
       // Obstacles Physics
@@ -658,6 +925,8 @@ const GameCanvas: React.FC = () => {
                      // Reward = stack count
                      const reward = o.showboatCount;
                      
+                     gs.showboatCoins = (gs.showboatCoins || 0) + reward;
+                     gs.totalShowboats = (gs.totalShowboats || 0) + 1;
                      userProgressRef.current.coins += reward;
                      setUserProgress({...userProgressRef.current}); // trigger save/render
                      addFloatingText(player.x, player.y - 30, `SHOWBOAT x${o.showboatCount}`, `+${reward} COINS`, COLORS.GOLD);
@@ -692,7 +961,8 @@ const GameCanvas: React.FC = () => {
                         vx: Math.cos((Math.PI*2/shardCount)*j)*150, 
                         vy: Math.sin((Math.PI*2/shardCount)*j)*150, 
                         size: 10, 
-                        life: 4.0 // Extended life to ensure it crosses screen
+                        life: 4.0, // Extended life to ensure it crosses screen
+                        isDangerous: true
                     }); 
                 }
                 obstaclesRef.current.splice(i, 1); 
@@ -717,6 +987,11 @@ const GameCanvas: React.FC = () => {
 
         // Collision
         if (Math.hypot(player.x - o.x, player.y - o.y) < player.radius + o.size * 0.75) {
+            if (gs.gameMode === 'practice') {
+                obstaclesRef.current.splice(i, 1);
+                audioManager.playSfx('shield_hit');
+                continue;
+            }
             const dmg = o.type === 'titan' ? 2 : 1;
             if (player.shields >= dmg) {
                 player.shields -= dmg;
@@ -740,6 +1015,16 @@ const GameCanvas: React.FC = () => {
         p.y += 120 * effectiveDt;
         
         if (Math.hypot(player.x - p.x, player.y - p.y) < player.radius + 20) {
+            // Track Collection
+            gs.powerupsCollected++;
+            if (gs.gameMode !== 'practice' && gs.gameMode !== 'preview') {
+                if (ChallengeService.onCollectPowerup(userProgressRef.current, gs)) {
+                    audioManager.playSfx('challenge_complete');
+                    addFloatingText(player.x, player.y, "CHALLENGE COMPLETE", "CHECK MISSION LOG", COLORS.GOLD);
+                    setUserProgress({...userProgressRef.current});
+                }
+            }
+
             if (p.type === 'shield') { 
                 const maxShields = CONSTANTS.BASE_MAX_SHIELDS + (userProgressRef.current.upgrades.maxShields * CONSTANTS.UPGRADE_BONUS_SHIELD);
                 if (player.shields < maxShields) {
@@ -750,6 +1035,10 @@ const GameCanvas: React.FC = () => {
                      audioManager.playSfx('coin');
                      const refundAmount = 10;
                      userProgressRef.current.coins += refundAmount;
+                     if (ChallengeService.trackCoinGain(userProgressRef.current, refundAmount)) {
+                         audioManager.playSfx('challenge_complete');
+                         addFloatingText(player.x, player.y, "CHALLENGE COMPLETE", "CHECK MISSION LOG", COLORS.GOLD);
+                     }
                      setUserProgress({...userProgressRef.current}); // Update state to trigger save
                      addFloatingText(player.x, player.y, "MAX SHIELD", `+${refundAmount} COINS`, COLORS.GOLD);
                 }
@@ -770,6 +1059,77 @@ const GameCanvas: React.FC = () => {
         }
       }
 
+
+
+      // Update Challenges
+      if (gs.isActive && !gs.isGameOver && gs.gameMode !== 'preview' && gs.gameMode !== 'practice') {
+          const { updated, completedCount } = ChallengeService.updateProgress(userProgressRef.current, gs, dtRawClamped);
+          if (updated) {
+              if (completedCount > 0) {
+                  audioManager.playSfx('challenge_complete'); // Use new sound
+                  addFloatingText(player.x, player.y, "CHALLENGE COMPLETE", "CHECK MISSION LOG", COLORS.GOLD);
+              }
+              setUserProgress({...userProgressRef.current});
+          }
+      }
+
+      // Always draw player (even if paused)
+      if (!gs.isPaused) {
+          const updateResult = Logic.updatePlayer(player, gs.width, gs.height, dtRawClamped, obstaclesRef.current, gs, userProgressRef.current.upgrades.grazeBonus);
+          const grazeCoins = updateResult.coins;
+          
+          if (updateResult.spawnParticle) {
+              particlesRef.current.push(updateResult.spawnParticle);
+          }
+
+          if (grazeCoins > 0) {
+              if (Date.now() - lastGrazeSfxTime.current > 150) {
+                  audioManager.playSfx('graze');
+                  lastGrazeSfxTime.current = Date.now();
+              }
+              accumulatedGrazeCoins.current += grazeCoins;
+              if (accumulatedGrazeCoins.current >= 1) {
+                  const amount = Math.floor(accumulatedGrazeCoins.current);
+                  addFloatingText(player.x, player.y, `+${amount}`, "", COLORS.GOLD);
+                  accumulatedGrazeCoins.current -= amount;
+                  
+                  // Update challenges
+                  if (ChallengeService.trackCoinGain(userProgressRef.current, amount)) {
+                      audioManager.playSfx('challenge_complete');
+                      addFloatingText(player.x, player.y, "CHALLENGE COMPLETE", "CHECK MISSION LOG", COLORS.GOLD);
+                      setUserProgress({...userProgressRef.current});
+                  }
+              }
+          }
+      }
+      
+      const currSlow = player.slowTimer;
+      const currShrink = player.shrinkTimer;
+
+      if (prevSlow > 0 && currSlow <= 0) audioManager.playSfx('slow_up');
+      if (prevShrink > 0 && currShrink <= 0) audioManager.playSfx('shrink_up');
+
+      if (Math.ceil(prevSlow) !== Math.ceil(currSlow) || Math.ceil(prevShrink) !== Math.ceil(currShrink)) {
+         setUiState(prev => ({ ...prev, triggerRender: prev.triggerRender + 1 }));
+      }
+
+      // Gold Skin Sparkles
+      if (player.skinId === 'gold' && Math.random() < 0.3) {
+          const angle = Math.random() * Math.PI * 2;
+          const dist = Math.random() * player.radius;
+          particlesRef.current.push({
+              id: `sparkle-${Date.now()}-${Math.random()}`,
+              x: player.x + Math.cos(angle) * dist,
+              y: player.y + Math.sin(angle) * dist,
+              vx: (Math.random() - 0.5) * 20,
+              vy: (Math.random() - 0.5) * 20,
+              size: 2 + Math.random() * 3,
+              life: 0.5 + Math.random() * 0.5,
+              maxLife: 1.0,
+              color: '#FFFFFF'
+          });
+      }
+
     } // END ACTIVE GAMEPLAY BLOCK
     
     // Independent Particle Physics
@@ -783,7 +1143,7 @@ const GameCanvas: React.FC = () => {
         p.y += p.vy * particleDt;
         p.life -= particleDt * (gs.isGameOver ? 0.5 : 1.0); 
         
-        if (gs.isActive && Math.hypot(player.x - p.x, player.y - p.y) < player.radius + p.size) {
+        if (gs.isActive && p.isDangerous && Math.hypot(player.x - p.x, player.y - p.y) < player.radius + p.size) {
             if (player.shields > 0) {
                     player.shields--;
                     audioManager.playSfx('shield_hit');
@@ -810,12 +1170,27 @@ const GameCanvas: React.FC = () => {
             ctx.save();
             ctx.shadowBlur = 20 + Math.sin(Date.now() / 200) * 10;
             ctx.shadowColor = COLORS.PLAYER;
-            drawPlayer(ctx, player, visualRadius);
+            drawPlayer(ctx, player, visualRadius, gs.gameMode as any);
             ctx.restore();
         } else {
-            drawPlayer(ctx, player, visualRadius);
+            drawPlayer(ctx, player, visualRadius, gs.gameMode as any);
         }
     }
+
+    const ctrlPressed = keysPressed.current.has('control');
+    const showHitboxes = settingsRef.current.showHitboxes !== ctrlPressed;
+
+    if (showHitboxes && !gs.isGameOver && gs.isActive) {
+        // Obstacle hitboxes
+        obstaclesRef.current.forEach(o => {
+            drawHitbox(ctx, o.x, o.y, o.size * 0.75);
+        });
+        // Player hitbox (on top of everything)
+        drawHitbox(ctx, player.x, player.y, player.radius);
+    }
+
+    // Pause Overlay handled in React now
+    // if (gs.isPaused) { ... }
 
     animationFrameId.current = requestAnimationFrame(update);
   };
@@ -847,13 +1222,93 @@ const GameCanvas: React.FC = () => {
       </div>
 
       {uiState.view === 'game' && !uiState.isWaitingForStart && (
-        <HUD 
-            gameState={gameStateRef.current} 
-            player={playerRef.current} 
-            onDebugToggle={(v) => { debugMode.current = v; }}
-            timerRef={timerRef}
-            floatingTexts={floatingTexts}
-        />
+        <>
+            {gameStateRef.current.gameMode === 'practice' && heatmapSettings.visible && (
+                <HeatmapOverlay 
+                    deaths={userProgress.deathHistory || []}
+                    showNormal={heatmapSettings.showNormal}
+                    showHardcore={heatmapSettings.showHardcore}
+                    width={gameStateRef.current.width}
+                    height={gameStateRef.current.height}
+                />
+            )}
+            <HUD 
+                gameState={gameStateRef.current} 
+                visualRisk={visualRiskRef.current}
+                player={playerRef.current} 
+                onDebugToggle={(v) => { debugMode.current = v; }}
+                timerRef={timerRef}
+                floatingTexts={floatingTexts}
+                heatmapSettings={gameStateRef.current.gameMode === 'practice' ? heatmapSettings : undefined}
+                onUpdateHeatmap={setHeatmapSettings}
+                riskBarRef={riskBarRef}
+                riskTextRef={riskTextRef}
+                riskContainerRef={riskContainerRef}
+            />
+            {/* Pause Overlay */}
+            {uiState.isPaused && (
+                <div className="absolute inset-0 z-[90] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
+                    <div className="text-4xl font-black text-white mb-8 tracking-widest">PAUSED</div>
+                    
+                    <button
+                        onClick={() => {
+                            setUiState(prev => ({ ...prev, isPaused: false }));
+                            gameStateRef.current.isPaused = false;
+                            audioManager.playSfx('ui_click');
+                        }}
+                        className="bg-white text-black px-8 py-3 font-mono font-bold hover:bg-gray-200 transition-colors mb-4 min-w-[200px]"
+                    >
+                        RESUME
+                    </button>
+                    
+                    <button
+                        onClick={() => {
+                            setUiState(prev => ({ ...prev, isPaused: false }));
+                            gameStateRef.current.isPaused = false;
+                            setView('menu');
+                            audioManager.playTitleTheme();
+                        }}
+                        className="bg-red-500/20 border border-red-500 text-red-500 px-8 py-3 font-mono font-bold hover:bg-red-500 hover:text-white transition-colors min-w-[200px]"
+                    >
+                        ABORT RUN
+                    </button>
+                    
+                    {gameStateRef.current.gameMode === 'practice' && (
+                        <button
+                            onClick={() => {
+                                setUiState(prev => ({ ...prev, isPaused: false }));
+                                gameStateRef.current.isPaused = false;
+                                setView('menu');
+                                audioManager.playTitleTheme();
+                            }}
+                            className="mt-4 bg-blue-500/20 border border-blue-500 text-blue-500 px-8 py-3 font-mono font-bold hover:bg-blue-500 hover:text-white transition-colors min-w-[200px]"
+                        >
+                            EXIT PRACTICE
+                        </button>
+                    )}
+                </div>
+            )}
+
+            {/* Pause Button */}
+            <button 
+                onClick={(e) => {
+                    e.stopPropagation(); // Prevent game interaction
+                    togglePause();
+                }}
+                className="absolute top-5 right-5 z-[60] text-white/70 hover:text-white transition-colors"
+                aria-label={uiState.isPaused ? "Resume" : "Pause"}
+            >
+                {uiState.isPaused ? (
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                ) : (
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    </svg>
+                )}
+            </button>
+        </>
       )}
       
       {/* Preview Mode Overlay - ensure we check view AND mode */}
@@ -904,15 +1359,74 @@ const GameCanvas: React.FC = () => {
       )}
 
       {uiState.view === 'menu' && (
-        <MainMenu 
-            onStartGame={initGameSequence} 
-            onShowLeaderboard={() => { playClick(); setView('highscore_board'); }}
-            onShowOptions={() => { playClick(); setView('options'); }}
-            onShowShop={() => { playClick(); setView('shop'); }}
-            onShowCredits={() => { playClick(); setView('credits'); }}
-            playHover={playHover}
-            coins={userProgress.coins}
-        />
+        <>
+            <MainMenu 
+                onStartGame={initGameSequence} 
+                onShowLeaderboard={() => { playClick(); setView('highscore_board'); }}
+                onShowOptions={() => { playClick(); setView('options'); }}
+                onShowShop={() => { playClick(); setView('shop'); }}
+                onShowCredits={() => { playClick(); setView('credits'); }}
+                onShowChallenges={() => { setShowChallenges(true); playClick(); }}
+                hasUnclaimedRewards={userProgress.activeChallenges.some(c => c.completed && !c.claimed)}
+                playHover={playHover}
+                coins={userProgress.coins}
+            />
+        </>
+      )}
+
+      {showChallenges && (
+          <ChallengesOverlay 
+            challenges={userProgress.activeChallenges} 
+            progressionIndex={userProgress.progressionMissionIndex || 0}
+            userCoins={userProgress.coins}
+            onClose={() => setShowChallenges(false)} 
+            onReroll={(id) => {
+                const result = ChallengeService.rerollChallenge(id, userProgressRef.current);
+                if (result.success && result.newChallenge) {
+                    audioManager.playSfx('menu_select');
+                    setUserProgress({...userProgressRef.current});
+                } else {
+                    audioManager.playSfx('error');
+                }
+            }}
+            onClaim={(id) => {
+                const challenge = userProgressRef.current.activeChallenges.find(c => c.id === id);
+                if (challenge && challenge.completed && !challenge.claimed) {
+                    challenge.claimed = true;
+                    
+                    let newChallenges = [...userProgressRef.current.activeChallenges];
+                    let newProgressionIndex = userProgressRef.current.progressionMissionIndex;
+
+                    if (challenge.type === 'repeatable') {
+                        const idx = newChallenges.findIndex(c => c.id === id);
+                        if (idx !== -1) {
+                            newChallenges[idx] = ChallengeService.generateSingleRepeatableChallenge(newChallenges, userProgressRef.current);
+                        }
+                    } else if (challenge.type === 'progression') {
+                         newChallenges = newChallenges.filter(c => c.id !== id);
+                         newProgressionIndex = (newProgressionIndex || 0) + 1;
+                         
+                         // Add next mission
+                         const tempProgress = { 
+                             ...userProgressRef.current, 
+                             activeChallenges: newChallenges, 
+                             progressionMissionIndex: newProgressionIndex 
+                         };
+                         ChallengeService.ensureProgressionMission(tempProgress);
+                         newChallenges = tempProgress.activeChallenges;
+                    }
+
+                    const newProgress = {
+                        ...userProgressRef.current,
+                        activeChallenges: newChallenges,
+                        coins: userProgressRef.current.coins + challenge.reward,
+                        progressionMissionIndex: newProgressionIndex
+                    };
+                    setUserProgress(newProgress);
+                    audioManager.playSfx('coin');
+                }
+            }}
+          />
       )}
 
       {uiState.view === 'shop' && (
@@ -930,12 +1444,12 @@ const GameCanvas: React.FC = () => {
 
       {uiState.view === 'loadout' && (
           <LoadoutScreen
-            mode={pendingModeRef.current}
+            mode={pendingModeRef.current === 'hardcore' ? 'hardcore' : 'normal'}
             progress={userProgress}
             onUpdateProgress={setUserProgress}
             onStart={(loadout) => {
                 activeLoadout.current = loadout;
-                startGame(pendingModeRef.current);
+                startGame(pendingModeRef.current === 'hardcore' ? 'hardcore' : 'normal');
             }}
             onCancel={() => setView('menu')}
             playClick={playClick}
@@ -961,7 +1475,7 @@ const GameCanvas: React.FC = () => {
 
       {uiState.view === 'highscore_board' && (
         <Leaderboard 
-            initialMode={gameStateRef.current.gameMode === 'preview' ? 'normal' : gameStateRef.current.gameMode}
+            initialMode={(gameStateRef.current.gameMode === 'preview' || gameStateRef.current.gameMode === 'practice') ? 'normal' : gameStateRef.current.gameMode}
             onClose={() => setView('menu')}
             playClick={playClick}
             playHover={playHover}
@@ -976,7 +1490,28 @@ const GameCanvas: React.FC = () => {
       )}
 
       {uiState.view === 'gameover' && (
-        <GameOverScreen gameState={gameStateRef.current} />
+        <GameOverScreen gameState={gameStateRef.current} isTutorialActive={!!activeTutorial} />
+      )}
+
+      {debugMode.current && (
+          <div className="absolute bottom-1 left-1 text-red-600 font-mono font-black text-xl z-[100] animate-pulse pointer-events-none select-none">
+              [!D!]
+          </div>
+      )}
+
+      {activeTutorial && (
+          <TutorialOverlay 
+              title={activeTutorial.title}
+              message={activeTutorial.message}
+              onDismiss={() => {
+                  setActiveTutorial(null);
+                  // Unpause
+                  gameStateRef.current.isPaused = false;
+                  setUiState(prev => ({ ...prev, isPaused: false }));
+                  audioManager.playSfx('menu_close');
+                  lastFrameTime.current = Date.now(); // Reset frame time so we don't jump
+              }}
+          />
       )}
 
       <canvas ref={canvasRef} className="block" />

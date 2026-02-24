@@ -6,9 +6,10 @@ import { audioManager } from '../../services/audioManager';
 
 interface GameOverScreenProps {
   gameState: GameState;
+  isTutorialActive?: boolean;
 }
 
-const GameOverScreen: React.FC<GameOverScreenProps> = ({ gameState }) => {
+const GameOverScreen: React.FC<GameOverScreenProps> = ({ gameState, isTutorialActive }) => {
   const [displayCoins, setDisplayCoins] = useState(0);
   const bd = gameState.coinBreakdown;
 
@@ -37,7 +38,7 @@ const GameOverScreen: React.FC<GameOverScreenProps> = ({ gameState }) => {
   }, [bd]);
 
   return (
-    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white bg-black/95 p-8 border-4 border-[#2ecc71] z-[100] max-w-md w-full shadow-[0_0_50px_rgba(46,204,113,0.3)]">
+    <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white bg-black/95 p-8 border-4 border-[#2ecc71] z-[100] max-w-md w-full shadow-[0_0_50px_rgba(46,204,113,0.3)] ${isTutorialActive ? 'pointer-events-none opacity-50' : ''}`}>
       <h1 className="text-4xl font-bold mb-4 text-red-500 text-glow-red animate-pulse">
         CORE RUPTURED
       </h1>
@@ -68,7 +69,7 @@ const GameOverScreen: React.FC<GameOverScreenProps> = ({ gameState }) => {
                       {bd.isHardcore && (
                           <div className="flex justify-between text-red-400">
                               <span>HARDCORE MODE</span>
-                              <span>x5.0</span>
+                              <span>x3.0</span>
                           </div>
                       )}
 
@@ -79,9 +80,30 @@ const GameOverScreen: React.FC<GameOverScreenProps> = ({ gameState }) => {
                           </div>
                       )}
 
+                      {bd.grazeCoins > 0 && (
+                          <div className="flex justify-between text-orange-400">
+                              <span>GRAZING BONUS</span>
+                              <span>+{Math.floor(bd.grazeCoins)}</span>
+                          </div>
+                      )}
+
+                      {bd.showboatCoins > 0 && (
+                          <div className="flex justify-between text-yellow-400">
+                              <span>SHOWBOAT GAINS</span>
+                              <span>+{Math.floor(bd.showboatCoins)}</span>
+                          </div>
+                      )}
+
                       {bd.isDouble && (
                           <div className="flex justify-between text-blue-400">
                               <span>BOUNTY HUNTER</span>
+                              <span>x2.0</span>
+                          </div>
+                      )}
+
+                      {bd.isPermDouble && (
+                          <div className="flex justify-between text-[#9b59b6]">
+                              <span>FORTUNE MODULE</span>
                               <span>x2.0</span>
                           </div>
                       )}

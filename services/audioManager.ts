@@ -157,7 +157,7 @@ export class AudioManager {
     // --- Procedural SFX ---
     // Using oscillators to avoid loading external files for SFX
     
-    playSfx(type: 'spawn_normal' | 'spawn_seeker' | 'spawn_titan' | 'powerup' | 'shield_hit' | 'explosion_titan' | 'game_over' | 'checkpoint' | 'alarm' | 'ui_hover' | 'ui_click' | 'slow_down' | 'slow_up' | 'shrink_down' | 'shrink_up' | 'menu_open' | 'menu_close' | 'coin' | 'warp_engage') {
+    playSfx(type: 'spawn_normal' | 'spawn_seeker' | 'spawn_side_seeker' | 'spawn_titan' | 'powerup' | 'shield_hit' | 'explosion_titan' | 'game_over' | 'checkpoint' | 'challenge_complete' | 'alarm' | 'ui_hover' | 'ui_click' | 'slow_down' | 'slow_up' | 'shrink_down' | 'shrink_up' | 'menu_open' | 'menu_close' | 'coin' | 'warp_engage' | 'powerup_slow' | 'powerup_shield' | 'powerup_shrink' | 'buy' | 'graze' | 'menu_select' | 'error') {
         if (this.ctx.state === 'suspended') return;
         
         const t = this.ctx.currentTime;
@@ -168,6 +168,58 @@ export class AudioManager {
         gain.connect(this.sfxGain); // Connect to SFX Gain
 
         switch (type) {
+            case 'menu_select':
+                // Positive selection sound
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, t);
+                osc.frequency.exponentialRampToValueAtTime(1200, t + 0.1);
+                gain.gain.setValueAtTime(0.1, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+                osc.start(t);
+                osc.stop(t + 0.1);
+                break;
+
+            case 'error':
+                // Negative error sound
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, t);
+                osc.frequency.linearRampToValueAtTime(100, t + 0.2);
+                gain.gain.setValueAtTime(0.1, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+                osc.start(t);
+                osc.stop(t + 0.2);
+                break;
+
+            case 'graze':
+                // High pitch "spark" sound
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(3000, t);
+                osc.frequency.exponentialRampToValueAtTime(1000, t + 0.05);
+                gain.gain.setValueAtTime(0.05, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+                osc.start(t);
+                osc.stop(t + 0.05);
+                break;
+            case 'powerup_slow':
+            case 'powerup_shield':
+            case 'powerup_shrink':
+                // Reuse powerup sound for now
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, t);
+                osc.frequency.setValueAtTime(600, t + 0.1);
+                osc.frequency.setValueAtTime(1000, t + 0.2);
+                gain.gain.setValueAtTime(0.1, t);
+                gain.gain.linearRampToValueAtTime(0.1, t + 0.3);
+                gain.gain.linearRampToValueAtTime(0.001, t + 0.5);
+                osc.start(t);
+                osc.stop(t + 0.5);
+                break;
+
+            case 'buy':
+                // Reuse coin sound
+                this.playSfx('coin');
+                break;
+
             case 'spawn_normal':
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(800, t);
@@ -186,6 +238,27 @@ export class AudioManager {
                 gain.gain.linearRampToValueAtTime(0.01, t + 0.2);
                 osc.start(t);
                 osc.stop(t + 0.2);
+                break;
+
+            case 'spawn_side_seeker':
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(1600, t);
+                osc.frequency.linearRampToValueAtTime(800, t + 0.3);
+                // Add a second oscillator for a "warble" effect
+                const oscMod = this.ctx.createOscillator();
+                oscMod.type = 'sine';
+                oscMod.frequency.setValueAtTime(20, t);
+                const modGain = this.ctx.createGain();
+                modGain.gain.setValueAtTime(100, t);
+                oscMod.connect(modGain);
+                modGain.connect(osc.frequency);
+                oscMod.start(t);
+                oscMod.stop(t + 0.3);
+
+                gain.gain.setValueAtTime(0.1, t);
+                gain.gain.linearRampToValueAtTime(0.01, t + 0.3);
+                osc.start(t);
+                osc.stop(t + 0.3);
                 break;
 
             case 'spawn_titan':
@@ -310,6 +383,23 @@ export class AudioManager {
                 gain.gain.linearRampToValueAtTime(0, t + 1.0);
                 osc.start(t);
                 osc.stop(t + 1.0);
+                break;
+            
+            case 'challenge_complete':
+                // Arpeggio sound for achievement
+                const freqs = [600, 800, 1200];
+                freqs.forEach((f, i) => {
+                    const o = this.ctx.createOscillator();
+                    const g = this.ctx.createGain();
+                    o.type = 'sine';
+                    o.frequency.setValueAtTime(f, t + i * 0.1);
+                    g.gain.setValueAtTime(0.1, t + i * 0.1);
+                    g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.1 + 0.3);
+                    o.connect(g);
+                    g.connect(this.sfxGain);
+                    o.start(t + i * 0.1);
+                    o.stop(t + i * 0.1 + 0.3);
+                });
                 break;
             
             case 'alarm':

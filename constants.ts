@@ -30,7 +30,74 @@ export const CONSTANTS = {
   // Upgrades
   UPGRADE_BONUS_DURATION: 2, // +2 seconds per level
   UPGRADE_BONUS_SHIELD: 1, // +1 max shield per level
+  UPGRADE_BONUS_GRAZE: 0.2, // +20% coins per level
 };
+
+export const GRAZE_CONFIG = {
+    DISTANCE_THRESHOLD: 50, // Pixels (Reduced from 100)
+    COIN_RATE: 5, // Coins per second at max risk
+    RISK_DECAY: 30, // Risk points lost per second (Increased from 20)
+    RISK_GAIN: 45, // Risk points gained per second at 0 distance (Decreased from 60)
+};
+
+export const SKIN_CONFIG = [
+    // SOLIDS
+    { id: 'default', name: 'VANGUARD', type: 'solid', cost: 0, shape: 'circle', desc: 'Standard issue interceptor.', themeColor: '#2ecc71' },
+    { id: 'dart', name: 'DART', type: 'solid', cost: 1000, shape: 'fighter', desc: 'Aerodynamic high-speed frame.', themeColor: '#3498db' },
+    { id: 'tank', name: 'BULLDOG', type: 'solid', cost: 2500, shape: 'bomber', desc: 'Heavily armored chassis.', themeColor: '#e74c3c' },
+    { id: 'viper', name: 'VIPER', type: 'solid', cost: 5000, shape: 'viper', desc: 'Aggressive interceptor.', themeColor: '#9b59b6' },
+    
+    // PATTERNS
+    { id: 'shard', name: 'SHARD', type: 'pattern', cost: 12000, shape: 'shard', desc: 'Crystalline energy structure.', themeColor: '#00e5ff' },
+    { id: 'hex', name: 'HEX', type: 'pattern', cost: 14000, shape: 'circle', desc: 'Honeycomb lattice armor.', themeColor: '#f39c12' },
+    { id: 'circuit', name: 'CIRCUIT', type: 'pattern', cost: 16000, shape: 'fighter', desc: 'Printed circuit board design.', themeColor: '#27ae60' },
+    { id: 'zebra', name: 'ZEBRA', type: 'pattern', cost: 18000, shape: 'bomber', desc: 'High contrast dazzle camouflage.', themeColor: '#ffffff' },
+    
+    // ANIMATED
+    { id: 'saucer', name: 'U.F.O.', type: 'animated', cost: 15000, shape: 'saucer', desc: 'Metallic alien craft.', themeColor: '#00ff00' },
+    { id: 'ghost', name: 'GHOST', type: 'animated', cost: 20000, shape: 'ghost', desc: 'Semi-transparent stealth ship.', themeColor: '#a0d8ef' },
+    { id: 'glitch', name: 'GLITCH', type: 'animated', cost: 35000, shape: 'glitch', desc: 'Unstable digital artifact.', themeColor: '#ff0055' },
+    { id: 'gold', name: 'GOLD', type: 'animated', cost: 50000, shape: 'circle', desc: 'Pure animated gold.', themeColor: '#f1c40f' }
+];
+
+export const CHALLENGE_TEMPLATES = [
+    // BASE TEMPLATES (Scaled by Rarity)
+    { id: 'survive_time', desc: 'Survive for {target} seconds', reward: 1000, targetBase: 60, targetScale: 30 },
+    { id: 'collect_coins', desc: 'Collect {target} coins', reward: 1200, targetBase: 200, targetScale: 100 },
+    { id: 'graze_time', desc: 'Graze for {target} seconds', reward: 1500, targetBase: 15, targetScale: 10 },
+    { id: 'graze_time_single', desc: 'Graze for {target}s in one run', reward: 2000, targetBase: 10, targetScale: 5 },
+    { id: 'survive_single', desc: 'Survive {target}s in one run', reward: 1500, targetBase: 120, targetScale: 30 },
+    { id: 'reach_risk', desc: 'Reach {target}% Risk', reward: 2500, targetBase: 50, targetScale: 10 },
+    { id: 'showboat_count', desc: 'Perform {target} Showboats', reward: 2800, targetBase: 10, targetScale: 5 },
+    { id: 'collect_coins_single', desc: 'Collect {target} coins in one run', reward: 3500, targetBase: 1000, targetScale: 500 },
+    { id: 'collect_powerups', desc: 'Collect {target} Powerups', reward: 1500, targetBase: 5, targetScale: 5 },
+    { id: 'collect_powerups_single', desc: 'Collect {target} Powerups in one run', reward: 2500, targetBase: 3, targetScale: 2 },
+    { id: 'hardcore_survive', desc: 'Survive {target}s in Hardcore', reward: 5000, targetBase: 60, targetScale: 30 },
+    { id: 'titan_slayer', desc: 'Survive {target} Titan Phases', reward: 6000, targetBase: 1, targetScale: 1 }
+];
+
+export const PROGRESSION_MISSIONS = [
+    { id: 'm1', desc: "Survive for 60 seconds", templateId: 'survive_time', target: 60, reward: 500 },
+    { id: 'm2', desc: "Buy an Upgrade", templateId: 'buy_upgrade', target: 1, reward: 500 },
+    { id: 'm3', desc: "Reach 50% Risk", templateId: 'reach_risk', target: 50, reward: 750 },
+    { id: 'm4', desc: "Survive for 120 seconds", templateId: 'survive_time', target: 120, reward: 1000 },
+    { id: 'm5', desc: "Buy a new Trail", templateId: 'buy_trail', target: 1, reward: 1000 },
+    { id: 'm6', desc: "Collect 500 coins in one run", templateId: 'collect_coins_single', target: 500, reward: 1500 },
+    { id: 'm7', desc: "Buy the Showboat Unit", templateId: 'buy_showboat', target: 1, reward: 2000 },
+    { id: 'm8', desc: "Perform 10 Showboats in one run", templateId: 'showboat_count_single', target: 10, reward: 2500 },
+    { id: 'm9', desc: "Buy a new Skin", templateId: 'buy_skin', target: 1, reward: 3000 },
+    { id: 'm10', desc: "Survive 300 seconds (5 mins)", templateId: 'survive_time', target: 300, reward: 5000 },
+    { id: 'm11', desc: "Collect 1000 coins in one run", templateId: 'collect_coins_single', target: 1000, reward: 6000 },
+    { id: 'm12', desc: "Survive 2 Titan Phases", templateId: 'titan_slayer', target: 2, reward: 7000 },
+    { id: 'm13', desc: "Reach 80% Risk", templateId: 'reach_risk', target: 80, reward: 8000 },
+    { id: 'm14', desc: "Buy 3 Trails", templateId: 'buy_trail', target: 3, reward: 9000 },
+    { id: 'm15', desc: "Survive 600 seconds (10 mins)", templateId: 'survive_time', target: 600, reward: 10000 },
+    { id: 'm16', desc: "Perform 25 Showboats in one run", templateId: 'showboat_count_single', target: 25, reward: 12000 },
+    { id: 'm17', desc: "Buy 3 Skins", templateId: 'buy_skin', target: 3, reward: 15000 },
+    { id: 'm18', desc: "Survive 60s in Hardcore", templateId: 'hardcore_survive', target: 60, reward: 20000 },
+    { id: 'm19', desc: "Collect 5000 coins in one run", templateId: 'collect_coins_single', target: 5000, reward: 25000 },
+    { id: 'm20', desc: "Survive 5 Titan Phases", templateId: 'titan_slayer', target: 5, reward: 50000 }
+];
 
 export const SHOP_CONFIG = {
   maxShields: {
@@ -47,6 +114,13 @@ export const SHOP_CONFIG = {
     baseCost: 100,
     costMultiplier: 1.5,
     maxLevel: 99
+  },
+  grazeBonus: {
+    baseCost: 300,
+    costMultiplier: 1.8,
+    maxLevel: 99,
+    name: "RISK MODULE",
+    desc: "Earn more coins from grazing enemies"
   },
   permDoubleCoins: {
     baseCost: 50000, 
@@ -94,7 +168,8 @@ export const TRAIL_CONFIG: TrailDef[] = [
     { id: 'lightning', name: 'THUNDERBOLT', cost: 35000, type: 'animated', color: '#00ccff' },
     { id: 'glitch', name: 'SYSTEM ERROR', cost: 40000, type: 'animated', color: '#ff0055' },
     { id: 'rainbow', name: 'NEON OVERDRIVE', cost: 50000, type: 'animated', color: 'rainbow' },
-    { id: 'matrix', name: 'THE SOURCE', cost: 75000, type: 'animated', color: '#00ff00' }
+    { id: 'matrix', name: 'THE SOURCE', cost: 75000, type: 'animated', color: '#00ff00' },
+    { id: 'fortune', name: 'FORTUNE', cost: 100000, type: 'animated', color: '#f1c40f' }
 ];
 
 export const LOADOUT_CONFIG = {

@@ -1,7 +1,39 @@
 
 export type ObstacleType = 'normal' | 'titan' | 'seeker' | 'side-seeker' | 'diagonal';
 export type PowerUpType = 'shield' | 'slow' | 'shrink';
-export type TrailType = 'default' | 'blue' | 'red' | 'gold' | 'purple' | 'orange' | 'cyan' | 'dashed' | 'dotted' | 'rail' | 'chevron' | 'chain' | 'plasma' | 'rainbow' | 'matrix' | 'fire' | 'water' | 'tron' | 'glitch' | 'lightning';
+export type TrailType = 'default' | 'blue' | 'red' | 'gold' | 'purple' | 'orange' | 'cyan' | 'dashed' | 'dotted' | 'rail' | 'chevron' | 'chain' | 'plasma' | 'rainbow' | 'matrix' | 'fire' | 'water' | 'tron' | 'glitch' | 'lightning' | 'fortune';
+export type GameMode = 'normal' | 'hardcore' | 'preview' | 'practice';
+
+export interface ShipSkin {
+    id: string;
+    name: string;
+    type: 'solid' | 'pattern' | 'animated';
+    cost: number;
+    color?: string; // Optional now as we use themeColor or dynamic
+    themeColor?: string; // New
+    shape: 'triangle' | 'fighter' | 'interceptor' | 'bomber' | 'circle' | 'shard' | 'saucer' | 'ghost' | 'glitch' | 'viper'; 
+}
+
+export interface DeathRecord {
+    x: number;
+    y: number;
+    mode: 'normal' | 'hardcore';
+    timestamp: number;
+}
+
+export interface Challenge {
+    id: string;
+    templateId: string;
+    type: 'daily' | 'repeatable' | 'progression';
+    rarity?: 'common' | 'rare' | 'legendary';
+    description: string;
+    target: number;
+    progress: number;
+    reward: number;
+    completed: boolean;
+    claimed: boolean;
+    date?: string; // YYYY-MM-DD for daily
+}
 
 export interface Player {
   x: number;
@@ -16,6 +48,9 @@ export interface Player {
   slowTimer: number;
   trail: {x: number, y: number}[]; // Position history for visual trail
   trailType: TrailType;
+  skinId: string;
+  // New: Grazing
+  grazeMultiplier: number;
 }
 
 export interface Obstacle {
@@ -63,6 +98,9 @@ export interface Particle {
   vy: number;
   size: number;
   life: number;
+  maxLife?: number;
+  color?: string;
+  isDangerous?: boolean; // New: If true, player dies on contact
 }
 
 export interface CoinBreakdown {
@@ -74,6 +112,8 @@ export interface CoinBreakdown {
   isHardcore: boolean;
   isDouble: boolean;
   isPermDouble: boolean;
+  grazeCoins: number; // New
+  showboatCoins: number; // New
   total: number;
 }
 
@@ -81,7 +121,7 @@ export interface GameState {
   isActive: boolean;
   waitingForInput: boolean; // New state for "Click to Start"
   isGameOver: boolean;
-  gameMode: 'normal' | 'hardcore' | 'preview';
+  gameMode: GameMode;
   width: number;
   height: number;
   startTime: number;
@@ -112,6 +152,15 @@ export interface GameState {
   
   // Visual FX states
   isWarpingIn: boolean;
+  isPaused: boolean;
+  pauseStartTime?: number; // Track when pause started
+
+  // New: Grazing
+  currentRisk: number; // 0 to 100
+  showboatCoins: number; // New
+  totalShowboats: number; // New: Track count of showboats performed
+  powerupsCollected: number; // New: Track collected powerups in run
+  grazeTime: number; // New: Track total graze time in run
 }
 
 export interface HighScoreEntry {
@@ -127,6 +176,7 @@ export interface Upgrades {
   // One-time upgrades
   permDoubleCoins: boolean;
   showboat: boolean;
+  grazeBonus: number; // New: Increases graze coin generation
 }
 
 export interface UserProgress {
@@ -134,6 +184,14 @@ export interface UserProgress {
   upgrades: Upgrades;
   unlockedTrails: TrailType[];
   equippedTrail: TrailType;
+  tutorialsSeen: { [key: string]: boolean };
+  
+  equippedSkin: string;
+  unlockedSkins: string[];
+  deathHistory: DeathRecord[];
+  activeChallenges: Challenge[];
+  lastChallengeDate: string;
+  progressionMissionIndex: number; // New: Track one-time mission progress
 }
 
 export interface LoadoutState {
@@ -145,6 +203,7 @@ export interface LoadoutState {
 export interface GameSettings {
   reduceMotion: boolean;
   showFps: boolean;
+  showHitboxes: boolean;
   frameLimit: number; // 0 = uncapped, 30, 60
 }
 

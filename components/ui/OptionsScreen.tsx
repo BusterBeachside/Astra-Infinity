@@ -49,6 +49,7 @@ const OptionsScreen: React.FC<OptionsScreenProps> = ({ onClose, playClick, playH
 
     // Game Settings State
     const [gameSettings, setGameSettings] = useState<GameSettings>(Storage.getGameSettings());
+    const [confirmWipe, setConfirmWipe] = useState<number>(0);
 
     const handleMasterChange = (v: number) => {
         setMaster(v);
@@ -92,18 +93,26 @@ const OptionsScreen: React.FC<OptionsScreenProps> = ({ onClose, playClick, playH
                      <Slider label="SFX LEVEL" value={sfx} onChange={(v) => { handleSfxChange(v); if(Math.random() > 0.8) audioManager.playSfx('ui_click'); }} />
                  </div>
 
-                 <div className="p-6 border border-[#333] bg-black/50 rounded-lg shadow-2xl">
+                 <div className="p-6 border border-[#333] bg-black/50 rounded-lg shadow-2xl mb-4">
                      <h3 className="text-gray-400 font-mono text-sm mb-4 border-b border-gray-700 pb-1">DISPLAY</h3>
-                     <Toggle 
-                        label="REDUCE MOTION" 
-                        value={gameSettings.reduceMotion} 
-                        onChange={(v) => { updateGameSettings({ reduceMotion: v }); playClick(); }} 
-                     />
-                     <Toggle 
-                        label="SHOW FPS" 
-                        value={gameSettings.showFps} 
-                        onChange={(v) => { updateGameSettings({ showFps: v }); playClick(); }} 
-                     />
+                     <div className="flex justify-between items-center w-full mb-4 cursor-pointer" onClick={() => { updateGameSettings({ reduceMotion: !gameSettings.reduceMotion }); playClick(); }}>
+                        <span className="font-mono text-[#f1c40f]">REDUCE MOTION</span>
+                        <div className={`w-12 h-6 rounded-full p-1 transition-colors ${gameSettings.reduceMotion ? 'bg-[#f1c40f]' : 'bg-gray-700'}`}>
+                            <div className={`w-4 h-4 bg-black rounded-full shadow-md transform transition-transform ${gameSettings.reduceMotion ? 'translate-x-6' : 'translate-x-0'}`} />
+                        </div>
+                     </div>
+                     <div className="flex justify-between items-center w-full mb-4 cursor-pointer" onClick={() => { updateGameSettings({ showFps: !gameSettings.showFps }); playClick(); }}>
+                        <span className="font-mono text-[#f1c40f]">SHOW FPS</span>
+                        <div className={`w-12 h-6 rounded-full p-1 transition-colors ${gameSettings.showFps ? 'bg-[#f1c40f]' : 'bg-gray-700'}`}>
+                            <div className={`w-4 h-4 bg-black rounded-full shadow-md transform transition-transform ${gameSettings.showFps ? 'translate-x-6' : 'translate-x-0'}`} />
+                        </div>
+                     </div>
+                     <div className="flex justify-between items-center w-full mb-4 cursor-pointer" onClick={() => { updateGameSettings({ showHitboxes: !gameSettings.showHitboxes }); playClick(); }}>
+                        <span className="font-mono text-[#f1c40f]">DISPLAY HITBOXES</span>
+                        <div className={`w-12 h-6 rounded-full p-1 transition-colors ${gameSettings.showHitboxes ? 'bg-[#f1c40f]' : 'bg-gray-700'}`}>
+                            <div className={`w-4 h-4 bg-black rounded-full shadow-md transform transition-transform ${gameSettings.showHitboxes ? 'translate-x-6' : 'translate-x-0'}`} />
+                        </div>
+                     </div>
                      
                      <div className="flex flex-col w-full mb-2">
                         <span className="font-mono text-[#f1c40f] mb-2">FRAME LIMIT</span>
@@ -123,6 +132,55 @@ const OptionsScreen: React.FC<OptionsScreenProps> = ({ onClose, playClick, playH
                             ))}
                         </div>
                      </div>
+                 </div>
+
+                 {/* DANGER ZONE */}
+                 <div className="p-6 border border-red-900 bg-red-950/30 rounded-lg shadow-2xl mb-4">
+                     <h3 className="text-red-500 font-mono text-sm mb-4 border-b border-red-900 pb-1 font-bold">DANGER ZONE</h3>
+                     
+                     {!confirmWipe ? (
+                         <button 
+                             onClick={() => { setConfirmWipe(1); playClick(); }}
+                             className="w-full py-3 bg-red-900/20 border border-red-600 text-red-500 font-mono font-bold hover:bg-red-600 hover:text-black transition-colors"
+                         >
+                             ERASE ALL DATA
+                         </button>
+                     ) : confirmWipe === 1 ? (
+                         <div className="flex flex-col gap-2">
+                             <p className="text-red-400 text-xs font-mono text-center mb-2">WARNING: THIS IS IRREVERSIBLE.</p>
+                             <button 
+                                 onClick={() => { setConfirmWipe(2); playClick(); }}
+                                 className="w-full py-2 bg-red-600 text-black font-mono font-bold hover:bg-red-500"
+                             >
+                                 I AM SURE
+                             </button>
+                             <button 
+                                 onClick={() => { setConfirmWipe(0); playClick(); }}
+                                 className="w-full py-2 border border-gray-600 text-gray-400 font-mono hover:bg-gray-800"
+                             >
+                                 CANCEL
+                             </button>
+                         </div>
+                     ) : (
+                         <div className="flex flex-col gap-2">
+                             <p className="text-red-500 text-xs font-mono text-center mb-2 font-bold animate-pulse">FINAL CONFIRMATION: DELETE EVERYTHING?</p>
+                             <button 
+                                 onClick={() => { 
+                                     localStorage.clear(); 
+                                     window.location.reload(); 
+                                 }}
+                                 className="w-full py-3 bg-red-600 text-black font-mono font-black hover:bg-red-500 border-2 border-red-400"
+                             >
+                                 YES, WIPE DATA
+                             </button>
+                             <button 
+                                 onClick={() => { setConfirmWipe(0); playClick(); }}
+                                 className="w-full py-2 border border-gray-600 text-gray-400 font-mono hover:bg-gray-800"
+                             >
+                                 CANCEL
+                             </button>
+                         </div>
+                     )}
                  </div>
              </div>
 
