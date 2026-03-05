@@ -1,7 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { CheckCircle } from 'lucide-react';
 import { Challenge } from '../../types';
 import { PROGRESSION_MISSIONS, COLORS } from '../../constants';
+import { audioManager } from '../../services/audioManager';
 
 interface ChallengesOverlayProps {
     challenges: Challenge[];
@@ -47,7 +50,7 @@ const ChallengesOverlay: React.FC<ChallengesOverlayProps> = ({ challenges, progr
                 <div className="text-xs font-mono text-blue-500/50 uppercase tracking-widest">Astra_OS // Challenge_Matrix</div>
             </div>
 
-            <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto max-h-[70vh] pr-2 custom-scrollbar">
+            <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto overflow-x-hidden max-h-[70vh] pr-2 custom-scrollbar">
                 
                 {/* Progression Column */}
                 <div className="col-span-1 md:col-span-2 space-y-4 border-b border-gray-800 pb-6 mb-2">
@@ -100,19 +103,26 @@ const ChallengesOverlay: React.FC<ChallengesOverlayProps> = ({ challenges, progr
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {activeProgression ? (
-                                <ChallengeCard challenge={activeProgression} onClaim={onClaim} onReroll={onReroll} userCoins={userCoins} />
-                            ) : (
-                                <div className="text-purple-500/50 font-mono text-xs italic p-4 border border-purple-900/30 bg-purple-900/10">
-                                    ALL PROGRESSION MISSIONS COMPLETED.
-                                </div>
-                            )}
+                            <AnimatePresence mode="popLayout" initial={false}>
+                                {activeProgression ? (
+                                    <ChallengeCard key={activeProgression.id} challenge={activeProgression} onClaim={onClaim} onReroll={onReroll} userCoins={userCoins} />
+                                ) : (
+                                    <motion.div 
+                                        key="all-completed"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="text-purple-500/50 font-mono text-xs italic p-4 border border-purple-900/30 bg-purple-900/10"
+                                    >
+                                        ALL PROGRESSION MISSIONS COMPLETED.
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                     )}
                 </div>
 
                 {/* Daily Column */}
-                <div className="space-y-4">
+                <div className="space-y-4 relative min-h-[100px]">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
@@ -127,13 +137,15 @@ const ChallengesOverlay: React.FC<ChallengesOverlayProps> = ({ challenges, progr
                             NO DAILY MISSIONS ACTIVE.
                         </div>
                     )}
-                    {dailyMissions.map(c => (
-                        <ChallengeCard key={c.id} challenge={c} onClaim={onClaim} onReroll={onReroll} userCoins={userCoins} />
-                    ))}
+                    <AnimatePresence mode="popLayout" initial={false}>
+                        {dailyMissions.map(c => (
+                            <ChallengeCard key={c.id} challenge={c} onClaim={onClaim} onReroll={onReroll} userCoins={userCoins} />
+                        ))}
+                    </AnimatePresence>
                 </div>
 
                 {/* Repeatable Column */}
-                <div className="space-y-4">
+                <div className="space-y-4 relative min-h-[100px]">
                     <div className="flex items-center gap-2 mb-2">
                         <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
                         <h3 className="text-blue-400 font-mono font-bold tracking-widest text-sm">REPEATABLE MISSIONS</h3>
@@ -143,9 +155,11 @@ const ChallengesOverlay: React.FC<ChallengesOverlayProps> = ({ challenges, progr
                             NO REPEATABLE MISSIONS ACTIVE.
                         </div>
                     )}
-                    {repeatableMissions.slice(0, 3).map(c => (
-                        <ChallengeCard key={c.id} challenge={c} onClaim={onClaim} onReroll={onReroll} userCoins={userCoins} />
-                    ))}
+                    <AnimatePresence mode="popLayout" initial={false}>
+                        {repeatableMissions.slice(0, 3).map(c => (
+                            <ChallengeCard key={c.id} challenge={c} onClaim={onClaim} onReroll={onReroll} userCoins={userCoins} />
+                        ))}
+                    </AnimatePresence>
                 </div>
             </div>
 
@@ -159,7 +173,9 @@ const ChallengesOverlay: React.FC<ChallengesOverlayProps> = ({ challenges, progr
     );
 };
 
-const ChallengeCard: React.FC<{ challenge: Challenge, onClaim: (id: string) => void, onReroll: (id: string) => void, isLocked?: boolean, userCoins: number }> = ({ challenge: c, onClaim, onReroll, isLocked, userCoins }) => {
+const ChallengeCard = React.forwardRef<HTMLDivElement, { challenge: Challenge, onClaim: (id: string) => void, onReroll: (id: string) => void, isLocked?: boolean, userCoins: number }>(({ challenge: c, onClaim, onReroll, isLocked, userCoins }, ref) => {
+    const [isClaiming, setIsClaiming] = useState(false);
+
     // Rarity Colors
     const rarityColor = c.rarity === 'legendary' ? 'text-purple-400' : c.rarity === 'rare' ? 'text-blue-300' : 'text-gray-400';
     const rarityBorder = c.rarity === 'legendary' ? 'border-purple-500/30' : c.rarity === 'rare' ? 'border-blue-500/30' : 'border-gray-800';
@@ -167,10 +183,73 @@ const ChallengeCard: React.FC<{ challenge: Challenge, onClaim: (id: string) => v
     const rerollCost = c.type === 'daily' ? 500 : 250;
     const canReroll = !c.completed && !c.claimed && !isLocked && c.type !== 'progression';
 
+    useEffect(() => {
+        if (c.completed && !c.claimed) {
+            audioManager.playSfx('challenge_complete');
+        }
+    }, [c.completed, c.claimed]);
+
+    const handleClaim = () => {
+        if (isClaiming) return;
+        setIsClaiming(true);
+        audioManager.playSfx('checkpoint');
+        setTimeout(() => {
+            onClaim(c.id);
+        }, 800);
+    };
+
+    const isCRTType = c.type === 'progression' || c.type === 'repeatable';
+
     return (
-    <div 
-        className={`border ${c.completed && !c.claimed ? 'border-yellow-500/50 bg-yellow-500/5 shadow-[0_0_15px_rgba(241,196,15,0.1)]' : c.claimed ? 'border-green-500/30 bg-green-500/5 opacity-60' : `${rarityBorder} bg-black/40`} p-4 rounded relative overflow-hidden transition-all group`}
+    <motion.div 
+        ref={ref}
+        layout
+        initial={{ opacity: 0, x: 50 }}
+        animate={c.completed && !c.claimed ? {
+            opacity: 1,
+            x: 0,
+            scale: [1, 1.02, 1],
+            transition: { 
+                scale: { repeat: Infinity, duration: 2, ease: "easeInOut" },
+                x: { type: 'tween', ease: "easeOut", duration: 0.4, delay: 0.2 },
+                opacity: { duration: 0.2, delay: 0.2 }
+            }
+        } : { 
+            opacity: 1, 
+            x: 0,
+            transition: { 
+                x: { type: 'tween', ease: "easeOut", duration: 0.4, delay: 0.2 },
+                opacity: { duration: 0.2, delay: 0.2 }
+            }
+        }}
+        exit={isCRTType ? {
+            scaleY: [1, 0.02, 0],
+            scaleX: [1, 1.1, 0],
+            opacity: [1, 1, 0],
+            filter: ["brightness(1)", "brightness(5)", "brightness(0)"],
+            transition: { duration: 0.4, times: [0, 0.6, 1] }
+        } : { opacity: 0 }}
+        className={`border w-full ${c.completed && !c.claimed ? 'border-yellow-500/50 bg-yellow-500/5 shadow-[0_0_15px_rgba(241,196,15,0.1)]' : c.claimed ? 'border-green-500/30 bg-green-500/5 opacity-60' : `${rarityBorder} bg-black/40`} p-4 rounded relative overflow-hidden transition-all group`}
     >
+        <AnimatePresence>
+            {isClaiming && (
+                <motion.div 
+                    key="checkmark-overlay"
+                    initial={{ scale: 0, rotate: -45, opacity: 0 }}
+                    animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ 
+                        type: 'spring', 
+                        damping: 12, 
+                        stiffness: 400,
+                    }}
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none z-50 bg-black/60 backdrop-blur-[1px]"
+                >
+                    <CheckCircle className="w-24 h-24 text-green-500 fill-green-500/20 drop-shadow-[0_0_25px_rgba(34,197,94,0.8)]" />
+                </motion.div>
+            )}
+        </AnimatePresence>
+
         {isLocked && (
             <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
                 <div className="text-gray-500 font-mono text-xs uppercase tracking-widest border border-gray-700 px-2 py-1 bg-black">LOCKED</div>
@@ -184,7 +263,7 @@ const ChallengeCard: React.FC<{ challenge: Challenge, onClaim: (id: string) => v
         )}
 
         {c.completed && !c.claimed && (
-            <div className="absolute top-0 right-0 bg-yellow-500 text-black text-[9px] font-black px-2 py-0.5 uppercase tracking-tighter animate-pulse">
+            <div className="absolute top-0 right-0 bg-yellow-500 text-black text-[9px] font-black px-2 py-0.5 uppercase tracking-tighter animate-pulse z-20">
                 READY TO CLAIM
             </div>
         )}
@@ -207,19 +286,21 @@ const ChallengeCard: React.FC<{ challenge: Challenge, onClaim: (id: string) => v
                 <span>{Math.floor(c.progress)} / {c.target}</span>
             </div>
             <div className="h-1 w-full bg-gray-900 rounded-full overflow-hidden">
-                <div 
+                <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(100, (c.progress / c.target) * 100)}%` }}
                     className={`h-full transition-all duration-700 ${c.completed ? 'bg-green-500' : 'bg-blue-500'}`}
-                    style={{ width: `${Math.min(100, (c.progress / c.target) * 100)}%` }}
                 />
             </div>
         </div>
 
         {c.completed && !c.claimed && (
             <button 
-                onClick={() => onClaim(c.id)}
-                className="mt-3 w-full py-2 bg-yellow-500 text-black font-black font-mono text-[10px] hover:bg-white transition-all uppercase tracking-widest"
+                onClick={handleClaim}
+                disabled={isClaiming}
+                className={`mt-3 w-full py-2 ${isClaiming ? 'bg-gray-700 text-gray-500' : 'bg-yellow-500 text-black hover:bg-white'} font-black font-mono text-[10px] transition-all uppercase tracking-widest relative z-20`}
             >
-                CLAIM REWARD
+                {isClaiming ? 'PROCESSING...' : 'CLAIM REWARD'}
             </button>
         )}
 
@@ -233,8 +314,10 @@ const ChallengeCard: React.FC<{ challenge: Challenge, onClaim: (id: string) => v
                 REROLL (-{rerollCost})
             </button>
         )}
-    </div>
+    </motion.div>
     );
-};
+});
+
+ChallengeCard.displayName = 'ChallengeCard';
 
 export default ChallengesOverlay;

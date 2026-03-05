@@ -1,6 +1,7 @@
 
 import { Challenge, UserProgress, GameState } from '../types';
 import { CHALLENGE_TEMPLATES, PROGRESSION_MISSIONS } from '../constants';
+import { RNG } from './rng';
 
 export const ChallengeService = {
     generateDailyChallenges: (lastDate: string, existing: Challenge[] = [], progress?: UserProgress): Challenge[] => {
@@ -19,7 +20,7 @@ export const ChallengeService = {
 
         const addChallenge = (rarity: 'common' | 'rare' | 'legendary') => {
             for(let i=0; i<10; i++) {
-                const t = availableTemplates[Math.floor(Math.random() * availableTemplates.length)];
+                const t = RNG.choose(availableTemplates);
                 const c = ChallengeService.createChallenge(t, 'daily', rarity, today);
                 if (!ChallengeService.isDuplicate(c, combinedExisting)) {
                     challenges.push(c);
@@ -28,7 +29,7 @@ export const ChallengeService = {
                 }
             }
             // Fallback
-            const t = availableTemplates[Math.floor(Math.random() * availableTemplates.length)];
+            const t = RNG.choose(availableTemplates);
             challenges.push(ChallengeService.createChallenge(t, 'daily', rarity, today));
         };
 
@@ -37,10 +38,10 @@ export const ChallengeService = {
         addChallenge('common');
         
         // Slot 2: Common or Rare
-        addChallenge(Math.random() > 0.7 ? 'rare' : 'common');
+        addChallenge(RNG.random() > 0.7 ? 'rare' : 'common');
 
         // Slot 3: Rare or Legendary
-        addChallenge(Math.random() > 0.8 ? 'legendary' : 'rare');
+        addChallenge(RNG.random() > 0.8 ? 'legendary' : 'rare');
 
         return challenges;
     },
@@ -64,15 +65,15 @@ export const ChallengeService = {
         });
 
         // Random rarity
-        const r = Math.random();
+        const r = RNG.random();
         const rarity = r > 0.9 ? 'legendary' : (r > 0.6 ? 'rare' : 'common');
 
         for(let i=0; i<10; i++) {
-            const t = availableTemplates[Math.floor(Math.random() * availableTemplates.length)];
+            const t = RNG.choose(availableTemplates);
             const c = ChallengeService.createChallenge(t, 'repeatable', rarity);
             if (!ChallengeService.isDuplicate(c, existing)) return c;
         }
-        const t = availableTemplates[Math.floor(Math.random() * availableTemplates.length)];
+        const t = RNG.choose(availableTemplates);
         return ChallengeService.createChallenge(t, 'repeatable', rarity);
     },
 
@@ -90,6 +91,7 @@ export const ChallengeService = {
 
         // Deduct coins
         progress.coins -= cost;
+        progress.stats.lifetimeCoinsSpent = (progress.stats.lifetimeCoinsSpent || 0) + cost;
 
         // Generate new challenge of same type
         let newChallenge: Challenge;
@@ -101,7 +103,7 @@ export const ChallengeService = {
                 if (t.id === 'showboat_count' && (!progress.upgrades.showboat)) return false;
                 return true;
             });
-            const t = availableTemplates[Math.floor(Math.random() * availableTemplates.length)];
+            const t = RNG.choose(availableTemplates);
             // Keep same rarity? Or randomize? Let's randomize rarity slightly weighted to current
             const rarity = challenge.rarity || 'common';
             const d = new Date();
@@ -136,7 +138,7 @@ export const ChallengeService = {
         if (rarity === 'rare') rarityMult = 2.5;
         if (rarity === 'legendary') rarityMult = 5.0;
 
-        let target = Math.floor((template.targetBase * rarityMult * scaleMult) + Math.floor(Math.random() * template.targetScale * rarityMult * scaleMult));
+        let target = Math.floor((template.targetBase * rarityMult * scaleMult) + Math.floor(RNG.random() * template.targetScale * rarityMult * scaleMult));
         
         // Ensure target is at least 1
         target = Math.max(1, target);
@@ -145,7 +147,7 @@ export const ChallengeService = {
         if (template.id === 'reach_risk') target = Math.min(100, target);
 
         return {
-            id: `${type}_${Math.random().toString(36).substr(2, 9)}`,
+            id: `${type}_${RNG.id()}`,
             templateId: template.id,
             type,
             rarity,
@@ -180,6 +182,27 @@ export const ChallengeService = {
                 completed: false,
                 claimed: false
             };
+
+            // Initialize progress for "Own" missions
+            if (template.templateId === 'own_trails') {
+                mission.progress = progress.unlockedTrails ? progress.unlockedTrails.length : 1;
+            } else if (template.templateId === 'own_skins') {
+                mission.progress = progress.unlockedSkins ? progress.unlockedSkins.length : 1;
+            } else if (template.templateId === 'complete_missions') {
+                mission.progress = progress.stats ? (progress.stats.lifetimeMissionsCompleted || 0) : 0;
+            } else if (template.templateId === 'own_coins') {
+                mission.progress = progress.coins;
+            } else if (template.templateId.startsWith('upgrade_')) {
+                const upgradeKey = template.templateId.replace('upgrade_', '') as keyof typeof progress.upgrades;
+                mission.progress = (progress.upgrades[upgradeKey] as number) || 0;
+            } else if (template.templateId === 'buy_fortune' && progress.upgrades.permDoubleCoins) {
+                mission.progress = 1;
+            }
+
+            if (mission.progress >= mission.target) {
+                mission.completed = true;
+            }
+
             progress.activeChallenges.push(mission);
         }
     },
@@ -265,6 +288,20 @@ export const ChallengeService = {
                 c.completed = true;
                 completedCount++;
                 anyUpdated = true;
+                // Update lifetime stat
+                if (!progress.stats) {
+                    // This should be handled by storage merge, but being safe
+                    (progress as any).stats = { lifetimeMissionsCompleted: 0 };
+                }
+                progress.stats.lifetimeMissionsCompleted = (progress.stats.lifetimeMissionsCompleted || 0) + 1;
+                
+                // Update any active "complete_missions" challenges
+                progress.activeChallenges.forEach(mc => {
+                    if (mc.templateId === 'complete_missions' && !mc.completed) {
+                        mc.progress = progress.stats.lifetimeMissionsCompleted;
+                        if (mc.progress >= mc.target) mc.completed = true;
+                    }
+                });
             }
         });
 
@@ -277,6 +314,14 @@ export const ChallengeService = {
         progress.activeChallenges.forEach(c => {
             if (c.templateId === 'collect_coins' && !c.completed) {
                 c.progress = Math.min(c.target, c.progress + amount);
+                updated = true;
+                if (c.progress >= c.target) {
+                    c.completed = true;
+                    completed = true;
+                }
+            }
+            if (c.templateId === 'own_coins' && !c.completed) {
+                c.progress = progress.coins;
                 updated = true;
                 if (c.progress >= c.target) {
                     c.completed = true;
@@ -326,6 +371,46 @@ export const ChallengeService = {
             check('buy_trail', 'trail');
             check('buy_skin', 'skin');
             check('buy_showboat', 'module', 'showboat');
+            check('buy_fortune', 'module', 'permDoubleCoins');
+
+            if (c.templateId.startsWith('upgrade_') && itemType === 'upgrade') {
+                const upgradeKey = c.templateId.replace('upgrade_', '') as keyof typeof progress.upgrades;
+                if (itemId === upgradeKey) {
+                    c.progress = (progress.upgrades[upgradeKey] as number) || 0;
+                    updated = true;
+                    if (c.progress >= c.target) {
+                        c.completed = true;
+                        completed = true;
+                    }
+                }
+            }
+
+            if (c.templateId === 'own_coins') {
+                c.progress = progress.coins;
+                updated = true;
+                if (c.progress >= c.target) {
+                    c.completed = true;
+                    completed = true;
+                }
+            }
+
+            if (c.templateId === 'own_trails' && itemType === 'trail') {
+                c.progress = progress.unlockedTrails.length;
+                updated = true;
+                if (c.progress >= c.target) {
+                    c.completed = true;
+                    completed = true;
+                }
+            }
+
+            if (c.templateId === 'own_skins' && itemType === 'skin') {
+                c.progress = progress.unlockedSkins.length;
+                updated = true;
+                if (c.progress >= c.target) {
+                    c.completed = true;
+                    completed = true;
+                }
+            }
         });
         return { updated, completed };
     }

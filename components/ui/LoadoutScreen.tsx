@@ -9,12 +9,13 @@ interface LoadoutScreenProps {
     onUpdateProgress: (p: UserProgress) => void;
     onStart: (loadout: LoadoutState) => void;
     onCancel: () => void;
+    onTutorial: () => void;
     playClick: () => void;
     mode: 'normal' | 'hardcore';
 }
 
 const LoadoutItem: React.FC<{
-    id: keyof LoadoutState;
+    id: 'startShield' | 'rocketBoost' | 'doubleCoins';
     config: { cost: number, name: string, desc: string };
     cost: number;
     isSelected: boolean;
@@ -49,7 +50,7 @@ const LoadoutItem: React.FC<{
     );
 };
 
-const LoadoutScreen: React.FC<LoadoutScreenProps> = ({ progress, onUpdateProgress, onStart, onCancel, playClick, mode }) => {
+const LoadoutScreen: React.FC<LoadoutScreenProps> = ({ progress, onUpdateProgress, onStart, onCancel, onTutorial, playClick, mode }) => {
     const [loadout, setLoadout] = useState<LoadoutState>({
         startShield: false,
         rocketBoost: false,
@@ -59,13 +60,13 @@ const LoadoutScreen: React.FC<LoadoutScreenProps> = ({ progress, onUpdateProgres
     const isHardcore = mode === 'hardcore';
     const costMult = isHardcore ? 2.5 : 1;
 
-    const getCost = (key: keyof LoadoutState) => {
+    const getCost = (key: 'startShield' | 'rocketBoost' | 'doubleCoins') => {
         // Special override for Hardcore Bounty Hunter
         if (key === 'doubleCoins' && isHardcore) return 500;
         return Math.floor(LOADOUT_CONFIG[key].cost * costMult);
     };
 
-    const toggleItem = (key: keyof LoadoutState) => {
+    const toggleItem = (key: 'startShield' | 'rocketBoost' | 'doubleCoins') => {
         if (key === 'startShield' && isHardcore) return;
 
         if (loadout[key]) {
@@ -97,7 +98,11 @@ const LoadoutScreen: React.FC<LoadoutScreenProps> = ({ progress, onUpdateProgres
         if (progress.coins >= cost) {
             onUpdateProgress({
                 ...progress,
-                coins: progress.coins - cost
+                coins: progress.coins - cost,
+                stats: {
+                    ...progress.stats,
+                    lifetimeCoinsSpent: (progress.stats.lifetimeCoinsSpent || 0) + cost
+                }
             });
             playClick();
             onStart(loadout);
@@ -110,6 +115,14 @@ const LoadoutScreen: React.FC<LoadoutScreenProps> = ({ progress, onUpdateProgres
                  <h2 className={`text-2xl font-bold mb-1 tracking-widest text-center ${isHardcore ? 'text-red-500' : 'text-[#2ecc71]'}`}>
                      {isHardcore ? 'HARDCORE LOADOUT' : 'MISSION LOADOUT'}
                  </h2>
+                 
+                 <button 
+                    onClick={onTutorial}
+                    className="absolute top-4 right-4 text-[10px] font-mono border border-[#00ff00]/30 bg-[#00ff00]/10 px-2 py-1 text-[#00ff00] hover:bg-[#00ff00] hover:text-black transition-all"
+                 >
+                    HOW TO PLAY
+                 </button>
+
                  <p className="text-center text-gray-400 text-xs font-mono mb-6">
                     {isHardcore ? 'INCREASED COSTS // SHIELDS OFFLINE' : 'SELECT ONE-TIME MODULES'}
                  </p>

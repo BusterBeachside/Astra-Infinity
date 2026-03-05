@@ -6,14 +6,16 @@ interface HeatmapOverlayProps {
     deaths: DeathRecord[];
     showNormal: boolean;
     showHardcore: boolean;
+    showChaos: boolean;
     width: number;
     height: number;
 }
 
-const HeatmapOverlay: React.FC<HeatmapOverlayProps> = ({ deaths, showNormal, showHardcore, width, height }) => {
+const HeatmapOverlay: React.FC<HeatmapOverlayProps> = ({ deaths, showNormal, showHardcore, showChaos, width, height }) => {
     const filteredDeaths = deaths.filter(d => {
         if (d.mode === 'normal' && showNormal) return true;
         if (d.mode === 'hardcore' && showHardcore) return true;
+        if (d.mode === 'chaos' && showChaos) return true;
         return false;
     });
 
@@ -29,6 +31,10 @@ const HeatmapOverlay: React.FC<HeatmapOverlayProps> = ({ deaths, showNormal, sho
                         <stop offset="0%" stopColor="#e74c3c" stopOpacity="0.8" />
                         <stop offset="100%" stopColor="#e74c3c" stopOpacity="0" />
                     </radialGradient>
+                    <radialGradient id="gradChaos">
+                        <stop offset="0%" stopColor="#f39c12" stopOpacity="0.8" />
+                        <stop offset="100%" stopColor="#f39c12" stopOpacity="0" />
+                    </radialGradient>
                 </defs>
                 {filteredDeaths.map((d, i) => (
                     <circle 
@@ -36,7 +42,7 @@ const HeatmapOverlay: React.FC<HeatmapOverlayProps> = ({ deaths, showNormal, sho
                         cx={d.x}
                         cy={d.y}
                         r={15}
-                        fill={d.mode === 'normal' ? 'url(#gradNormal)' : 'url(#gradHardcore)'}
+                        fill={d.mode === 'normal' ? 'url(#gradNormal)' : d.mode === 'hardcore' ? 'url(#gradHardcore)' : 'url(#gradChaos)'}
                     />
                 ))}
             </svg>

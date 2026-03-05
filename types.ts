@@ -1,8 +1,16 @@
 
 export type ObstacleType = 'normal' | 'titan' | 'seeker' | 'side-seeker' | 'diagonal';
 export type PowerUpType = 'shield' | 'slow' | 'shrink';
+export type ColorBlindMode = 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia';
 export type TrailType = 'default' | 'blue' | 'red' | 'gold' | 'purple' | 'orange' | 'cyan' | 'dashed' | 'dotted' | 'rail' | 'chevron' | 'chain' | 'plasma' | 'rainbow' | 'matrix' | 'fire' | 'water' | 'tron' | 'glitch' | 'lightning' | 'fortune';
-export type GameMode = 'normal' | 'hardcore' | 'preview' | 'practice';
+export type GameMode = 'normal' | 'hardcore' | 'chaos' | 'preview' | 'practice' | 'tutorial';
+export type ViewState = 'splash' | 'menu' | 'game' | 'gameover' | 'highscore_entry' | 'highscore_board' | 'options' | 'shop' | 'loadout' | 'chaos_loadout' | 'credits' | 'statistics' | 'replays' | 'auth' | 'online_leaderboard' | 'loading';
+
+export interface ChaosModules {
+    brrrrrr: boolean; // Haha, Spaceship Go Brrrrrr
+    theyHateYou: boolean; // They REALLY Don't Like you.
+    onTop: boolean; // And On Top Of That...
+}
 
 export interface ShipSkin {
     id: string;
@@ -17,7 +25,7 @@ export interface ShipSkin {
 export interface DeathRecord {
     x: number;
     y: number;
-    mode: 'normal' | 'hardcore';
+    mode: 'normal' | 'hardcore' | 'chaos';
     timestamp: number;
 }
 
@@ -112,6 +120,7 @@ export interface CoinBreakdown {
   isHardcore: boolean;
   isDouble: boolean;
   isPermDouble: boolean;
+  chaosMultiplier?: number; // New
   grazeCoins: number; // New
   showboatCoins: number; // New
   total: number;
@@ -153,7 +162,9 @@ export interface GameState {
   // Visual FX states
   isWarpingIn: boolean;
   isPaused: boolean;
+  isReplay: boolean; // New: Replay mode
   pauseStartTime?: number; // Track when pause started
+  chaosModules?: ChaosModules; // New: Chaos mode modules
 
   // New: Grazing
   currentRisk: number; // 0 to 100
@@ -161,12 +172,23 @@ export interface GameState {
   totalShowboats: number; // New: Track count of showboats performed
   powerupsCollected: number; // New: Track collected powerups in run
   grazeTime: number; // New: Track total graze time in run
+
+  // Tracking for stats
+  lastDeathBy?: string;
+  seenTutorials?: string[]; // Track tutorials seen in current run
 }
 
 export interface HighScoreEntry {
   name: string;
   score: number;
   date: string;
+  replayId?: string;
+  metadata?: {
+    upgrades?: Upgrades;
+    skinId?: string;
+    trailType?: TrailType;
+    mode?: string;
+  };
 }
 
 export interface Upgrades {
@@ -192,12 +214,29 @@ export interface UserProgress {
   activeChallenges: Challenge[];
   lastChallengeDate: string;
   progressionMissionIndex: number; // New: Track one-time mission progress
+
+  // Lifetime Statistics
+  stats: {
+    totalTimeNormal: number;
+    totalTimeHardcore: number;
+    totalRuns: number;
+    lifetimeMissionsCompleted: number;
+    lifetimeCoinsEarned: number;
+    lifetimeCoinsSpent: number;
+    totalShowboats: number;
+    totalTimeGrazed: number;
+    grazingCoinsEarned: number;
+    skinUsage: { [key: string]: number }; // skinId -> seconds
+    trailUsage: { [key: string]: number }; // trailType -> seconds
+    deathCounts: { [key: string]: number }; // enemyType -> count
+  };
 }
 
 export interface LoadoutState {
   startShield: boolean;
   rocketBoost: boolean; // Start at 60s
   doubleCoins: boolean;
+  chaosModules?: ChaosModules;
 }
 
 export interface GameSettings {
@@ -205,6 +244,7 @@ export interface GameSettings {
   showFps: boolean;
   showHitboxes: boolean;
   frameLimit: number; // 0 = uncapped, 30, 60
+  colorBlindMode: ColorBlindMode;
 }
 
 export interface FloatingText {
@@ -215,4 +255,48 @@ export interface FloatingText {
   subText?: string;
   color: string;
   life: number; // ms
+}
+
+export interface OnlineProfile {
+    id: string;
+    username: string;
+    avatar_url: string;
+    avatar_id?: string;
+}
+
+export interface LeaderboardEntry extends HighScoreEntry {
+    id: string;
+    user_id: string;
+    username: string;
+    avatar_url: string;
+    avatar_id?: string;
+    replay_path: string | null;
+    created_at: string;
+}
+
+export interface ReplayInputFrame {
+    dt: number;
+    x?: number;
+    y?: number;
+}
+
+export interface ReplayData {
+    id: string;
+    date: number;
+    seed: number;
+    width: number;
+    height: number;
+    gameMode: GameMode;
+    duration: number;
+    score: number;
+    grazeTime?: number;
+    showboats?: number;
+    upgrades?: Upgrades;
+    loadout?: LoadoutState;
+    chaosModules?: ChaosModules;
+    skinId?: string;
+    trailType?: TrailType;
+    inputs: ReplayInputFrame[] | string | number[];
+    version: string;
+    isCompressed?: boolean;
 }

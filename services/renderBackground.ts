@@ -1,6 +1,7 @@
 
 import { Star, GameState } from '../types';
 import { COLORS } from '../constants';
+import { VisualRNG } from './rng';
 
 // Connecting Dots (Network) effect for Splash
 export const drawNetworkBackground = (ctx: CanvasRenderingContext2D, stars: Star[], width: number, height: number, dt: number) => {
@@ -18,7 +19,7 @@ export const drawNetworkBackground = (ctx: CanvasRenderingContext2D, stars: Star
         // New move = speed(px/sec) * dt * 0.2
         s.y -= s.speed * dt * 0.2; 
         
-        if (s.y < 0) { s.y = height; s.x = Math.random() * width; }
+        if (s.y < 0) { s.y = height; s.x = VisualRNG.random() * width; }
         
         ctx.fillStyle = "rgba(46, 204, 113, 0.5)"; // Greenish
         ctx.beginPath();
@@ -74,7 +75,7 @@ export const drawWarpBackground = (ctx: CanvasRenderingContext2D, width: number,
         grad.addColorStop(1, 'rgba(255,255,255,0)');
 
         ctx.strokeStyle = grad;
-        ctx.lineWidth = 2 + Math.random() * 3;
+        ctx.lineWidth = 2 + VisualRNG.random() * 3;
         ctx.beginPath();
         ctx.moveTo(x, y);
         ctx.lineTo(endX, endY);

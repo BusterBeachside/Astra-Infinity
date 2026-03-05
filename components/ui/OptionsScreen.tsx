@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { audioManager } from '../../services/audioManager';
 import { GameSettings } from '../../types';
 import * as Storage from '../../services/storage';
+import { VisualRNG } from '../../services/rng';
 
 interface OptionsScreenProps {
     onClose: () => void;
@@ -90,17 +91,11 @@ const OptionsScreen: React.FC<OptionsScreenProps> = ({ onClose, playClick, playH
                      <h3 className="text-gray-400 font-mono text-sm mb-4 border-b border-gray-700 pb-1">AUDIO</h3>
                      <Slider label="MASTER OUTPUT" value={master} onChange={handleMasterChange} />
                      <Slider label="MUSIC LEVEL" value={music} onChange={handleMusicChange} />
-                     <Slider label="SFX LEVEL" value={sfx} onChange={(v) => { handleSfxChange(v); if(Math.random() > 0.8) audioManager.playSfx('ui_click'); }} />
+                     <Slider label="SFX LEVEL" value={sfx} onChange={(v) => { handleSfxChange(v); if(VisualRNG.random() > 0.8) audioManager.playSfx('ui_click'); }} />
                  </div>
 
                  <div className="p-6 border border-[#333] bg-black/50 rounded-lg shadow-2xl mb-4">
                      <h3 className="text-gray-400 font-mono text-sm mb-4 border-b border-gray-700 pb-1">DISPLAY</h3>
-                     <div className="flex justify-between items-center w-full mb-4 cursor-pointer" onClick={() => { updateGameSettings({ reduceMotion: !gameSettings.reduceMotion }); playClick(); }}>
-                        <span className="font-mono text-[#f1c40f]">REDUCE MOTION</span>
-                        <div className={`w-12 h-6 rounded-full p-1 transition-colors ${gameSettings.reduceMotion ? 'bg-[#f1c40f]' : 'bg-gray-700'}`}>
-                            <div className={`w-4 h-4 bg-black rounded-full shadow-md transform transition-transform ${gameSettings.reduceMotion ? 'translate-x-6' : 'translate-x-0'}`} />
-                        </div>
-                     </div>
                      <div className="flex justify-between items-center w-full mb-4 cursor-pointer" onClick={() => { updateGameSettings({ showFps: !gameSettings.showFps }); playClick(); }}>
                         <span className="font-mono text-[#f1c40f]">SHOW FPS</span>
                         <div className={`w-12 h-6 rounded-full p-1 transition-colors ${gameSettings.showFps ? 'bg-[#f1c40f]' : 'bg-gray-700'}`}>
@@ -131,6 +126,30 @@ const OptionsScreen: React.FC<OptionsScreenProps> = ({ onClose, playClick, playH
                                 </button>
                             ))}
                         </div>
+                     </div>
+                 </div>
+
+                 <div className="p-6 border border-[#333] bg-black/50 rounded-lg shadow-2xl mb-4">
+                     <h3 className="text-gray-400 font-mono text-sm mb-4 border-b border-gray-700 pb-1">ACCESSIBILITY</h3>
+                     <div className="flex justify-between items-center w-full mb-4 cursor-pointer" onClick={() => { updateGameSettings({ reduceMotion: !gameSettings.reduceMotion }); playClick(); }}>
+                        <span className="font-mono text-[#f1c40f]">REDUCE MOTION</span>
+                        <div className={`w-12 h-6 rounded-full p-1 transition-colors ${gameSettings.reduceMotion ? 'bg-[#f1c40f]' : 'bg-gray-700'}`}>
+                            <div className={`w-4 h-4 bg-black rounded-full shadow-md transform transition-transform ${gameSettings.reduceMotion ? 'translate-x-6' : 'translate-x-0'}`} />
+                        </div>
+                     </div>
+                     
+                     <div className="flex flex-col w-full mb-2">
+                        <span className="font-mono text-[#f1c40f] mb-2">COLORBLIND FILTER</span>
+                        <select 
+                            value={gameSettings.colorBlindMode}
+                            onChange={(e) => { updateGameSettings({ colorBlindMode: e.target.value as any }); playClick(); }}
+                            className="w-full bg-gray-800 border border-gray-700 text-[#f1c40f] font-mono p-2 rounded outline-none focus:border-[#f1c40f]"
+                        >
+                            <option value="none">NONE</option>
+                            <option value="protanopia">PROTANOPIA</option>
+                            <option value="deuteranopia">DEUTERANOPIA</option>
+                            <option value="tritanopia">TRITANOPIA</option>
+                        </select>
                      </div>
                  </div>
 

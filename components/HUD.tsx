@@ -13,8 +13,8 @@ interface HUDProps {
   onDebugToggle: (checked: boolean) => void;
   timerRef: React.RefObject<HTMLDivElement>;
   floatingTexts: FloatingText[];
-  heatmapSettings?: { visible: boolean; showNormal: boolean; showHardcore: boolean };
-  onUpdateHeatmap?: (settings: { visible: boolean; showNormal: boolean; showHardcore: boolean }) => void;
+  heatmapSettings?: { visible: boolean; showNormal: boolean; showHardcore: boolean; showChaos: boolean };
+  onUpdateHeatmap?: (settings: { visible: boolean; showNormal: boolean; showHardcore: boolean; showChaos: boolean }) => void;
   riskBarRef?: React.RefObject<HTMLDivElement>;
   riskTextRef?: React.RefObject<HTMLDivElement>;
   riskContainerRef?: React.RefObject<HTMLDivElement>;
@@ -86,6 +86,12 @@ const HUD: React.FC<HUDProps> = ({ gameState, visualRisk, player, onDebugToggle,
                       >
                           HARDCORE
                       </button>
+                      <button 
+                          onClick={() => onUpdateHeatmap({ ...heatmapSettings, showChaos: !heatmapSettings.showChaos })}
+                          className={`px-2 py-0.5 font-mono text-[10px] border transition-colors ${heatmapSettings.showChaos ? 'bg-[#f39c12] text-black border-[#f39c12]' : 'bg-black/60 text-[#f39c12] border-[#f39c12]'}`}
+                      >
+                          CHAOS
+                      </button>
                   </div>
               )}
           </div>
@@ -94,7 +100,7 @@ const HUD: React.FC<HUDProps> = ({ gameState, visualRisk, player, onDebugToggle,
       {/* Timer */}
       <div 
         ref={timerRef}
-        className="absolute bottom-5 right-5 text-4xl font-black text-white pointer-events-none z-50 text-glow"
+        className="absolute bottom-5 right-5 text-4xl font-black text-white pointer-events-none z-50 text-glow drop-shadow-[0_0_3px_rgba(0,0,0,1)]"
       >
         00:00.0
       </div>

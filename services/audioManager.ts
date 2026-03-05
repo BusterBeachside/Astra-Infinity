@@ -1,4 +1,6 @@
 
+import { VisualRNG } from './rng';
+
 export class AudioManager {
     private ctx: AudioContext;
     private masterGain: GainNode;
@@ -34,6 +36,17 @@ export class AudioManager {
         this.sfxGain.connect(this.masterGain);
 
         this.updateVolumes();
+    }
+
+    public init() {
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+        this.isInitialized = true;
+    }
+
+    public get context() {
+        return this.ctx;
     }
 
     updateVolumes() {
@@ -353,7 +366,7 @@ export class AudioManager {
                 const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
                 const data = buffer.getChannelData(0);
                 for (let i = 0; i < bufferSize; i++) {
-                    data[i] = Math.random() * 2 - 1;
+                    data[i] = VisualRNG.random() * 2 - 1;
                 }
                 const noise = this.ctx.createBufferSource();
                 noise.buffer = buffer;

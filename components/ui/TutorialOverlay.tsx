@@ -34,7 +34,10 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ title, message, onDis
 
                 {/* Footer / Action */}
                 <button 
-                    onClick={onDismiss}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onDismiss();
+                    }}
                     className="w-full py-3 bg-[#00ff00]/20 border border-[#00ff00] text-[#00ff00] font-mono font-bold hover:bg-[#00ff00] hover:text-black transition-all duration-200 group"
                 >
                     <span className="group-hover:hidden">[ ACKNOWLEDGE ]</span>

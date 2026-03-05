@@ -6,15 +6,18 @@ import { audioManager } from '../../services/audioManager';
 
 interface GameOverScreenProps {
   gameState: GameState;
+  isReplaying: boolean;
   isTutorialActive?: boolean;
 }
 
-const GameOverScreen: React.FC<GameOverScreenProps> = ({ gameState, isTutorialActive }) => {
+const GameOverScreen: React.FC<GameOverScreenProps> = ({ gameState, isReplaying, isTutorialActive }) => {
   const [displayCoins, setDisplayCoins] = useState(0);
   const bd = gameState.coinBreakdown;
+  const dtMultiplier = (gameState.chaosModules?.brrrrrr) ? 2 : 1;
+  const realTime = gameState.timeOffset + (gameState.elapsedTime - gameState.timeOffset) / dtMultiplier;
 
   useEffect(() => {
-      if (!bd) return;
+      if (!bd || isReplaying) return;
       
       let current = 0;
       const total = bd.total;
@@ -35,7 +38,26 @@ const GameOverScreen: React.FC<GameOverScreenProps> = ({ gameState, isTutorialAc
       }, intervalTime);
 
       return () => clearInterval(timer);
-  }, [bd]);
+  }, [bd, isReplaying]);
+
+  if (isReplaying) {
+      return (
+          <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white bg-black/95 p-8 border-4 border-[#3498db] z-[100] max-w-md w-full shadow-[0_0_50px_rgba(52,152,219,0.3)]`}>
+              <h1 className="text-4xl font-bold mb-4 text-[#3498db] text-glow-blue">
+                  REPLAY FINISHED
+              </h1>
+              <div className="mb-6 space-y-4">
+                  <div className="text-lg font-mono text-gray-300">
+                      <div>UPTIME: {formatTime(realTime)}</div>
+                      <div className="text-sm opacity-70 uppercase">MODE: {gameState.gameMode}</div>
+                  </div>
+              </div>
+              <div className="text-sm text-[#3498db] animate-bounce cursor-pointer">
+                  TAP TO REBOOT SYSTEM
+              </div>
+          </div>
+      );
+  }
 
   return (
     <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white bg-black/95 p-8 border-4 border-[#2ecc71] z-[100] max-w-md w-full shadow-[0_0_50px_rgba(46,204,113,0.3)] ${isTutorialActive ? 'pointer-events-none opacity-50' : ''}`}>
@@ -45,8 +67,8 @@ const GameOverScreen: React.FC<GameOverScreenProps> = ({ gameState, isTutorialAc
       
       <div className="mb-6 space-y-4">
           <div className="text-lg font-mono text-gray-300">
-             <div>UPTIME: {formatTime(gameState.elapsedTime)}</div>
-             <div className="text-sm opacity-70">MODE: {gameState.gameMode === 'hardcore' ? 'HARDCORE' : 'NORMAL'}</div>
+             <div>UPTIME: {formatTime(realTime)}</div>
+             <div className="text-sm opacity-70 uppercase">MODE: {gameState.gameMode}</div>
           </div>
 
           <div className="p-4 bg-[#f1c40f]/10 border border-[#f1c40f] rounded">
@@ -70,6 +92,13 @@ const GameOverScreen: React.FC<GameOverScreenProps> = ({ gameState, isTutorialAc
                           <div className="flex justify-between text-red-400">
                               <span>HARDCORE MODE</span>
                               <span>x3.0</span>
+                          </div>
+                      )}
+
+                      {bd.chaosMultiplier !== undefined && bd.chaosMultiplier > 1 && (
+                          <div className="flex justify-between text-orange-500 font-bold">
+                              <span>CHAOS MULTIPLIER</span>
+                              <span>x{bd.chaosMultiplier.toFixed(1)}</span>
                           </div>
                       )}
 

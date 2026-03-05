@@ -5,6 +5,8 @@ import { SHOP_CONFIG, CONSTANTS, TRAIL_CONFIG, SKIN_CONFIG } from '../../constan
 import { audioManager } from '../../services/audioManager';
 import { ChallengeService } from '../../services/challengeService';
 
+import { ShipRenderer } from './ShipRenderer';
+
 interface ShopScreenProps {
     progress: UserProgress;
     onUpdateProgress: (p: UserProgress) => void;
@@ -73,22 +75,34 @@ const ShopItem: React.FC<{
     isOwned: boolean;
     isEquipped: boolean;
     coins: number;
+    isSkin?: boolean;
     onBuy: () => void;
     onEquip: () => void;
     onPreview: () => void;
-}> = ({ id, name, desc, type, cost, color, isOwned, isEquipped, coins, onBuy, onEquip, onPreview }) => {
+}> = ({ id, name, desc, type, cost, color, isOwned, isEquipped, coins, isSkin, onBuy, onEquip, onPreview }) => {
     const canAfford = coins >= cost;
 
     return (
         <div className="flex items-center justify-between border border-gray-700 bg-black/60 p-3 rounded mb-3 w-full">
             <div className="flex items-center gap-3">
                  <div 
-                    className="w-8 h-8 rounded border border-white/20 cursor-pointer hover:scale-110 transition-transform flex items-center justify-center"
-                    style={{ background: type === 'animated' ? `linear-gradient(45deg, ${color || '#fff'}, #fff)` : (color || '#333') }}
+                    className="w-10 h-10 rounded-full border border-white/20 cursor-pointer hover:scale-110 transition-transform flex items-center justify-center bg-black/40 overflow-hidden"
                     onClick={onPreview}
                     title="Preview"
                  >
-                    {/* Simple icon placeholder if needed */}
+                    {isSkin ? (
+                        <ShipRenderer skinId={id} size={32} />
+                    ) : (
+                        <div 
+                            className="w-4 h-4 rounded-full"
+                            style={{ 
+                                background: color === 'rainbow' 
+                                    ? 'linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet)' 
+                                    : color || '#333',
+                                boxShadow: `0 0 10px ${color === 'rainbow' ? 'rgba(255,255,255,0.5)' : color || 'transparent'}`
+                            }}
+                        />
+                    )}
                  </div>
                  <div>
                     <div className="text-white font-bold font-mono">{name}</div>
@@ -173,6 +187,10 @@ const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgress, onC
                 upgrades: {
                     ...progress.upgrades,
                     [key]: newVal
+                },
+                stats: {
+                    ...progress.stats,
+                    lifetimeCoinsSpent: (progress.stats.lifetimeCoinsSpent || 0) + cost
                 }
             };
 
@@ -200,7 +218,11 @@ const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgress, onC
                 ...progress,
                 coins: progress.coins - cost,
                 unlockedTrails: [...progress.unlockedTrails, trailId],
-                equippedTrail: trailId // Auto equip on buy
+                equippedTrail: trailId, // Auto equip on buy
+                stats: {
+                    ...progress.stats,
+                    lifetimeCoinsSpent: (progress.stats.lifetimeCoinsSpent || 0) + cost
+                }
             };
 
             const purchaseResult = ChallengeService.onPurchase(newProgress, 'trail');
@@ -232,7 +254,11 @@ const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgress, onC
                 ...progress,
                 coins: progress.coins - cost,
                 unlockedSkins: [...(progress.unlockedSkins || ['default']), skinId],
-                equippedSkin: skinId
+                equippedSkin: skinId,
+                stats: {
+                    ...progress.stats,
+                    lifetimeCoinsSpent: (progress.stats.lifetimeCoinsSpent || 0) + cost
+                }
             };
 
             const purchaseResult = ChallengeService.onPurchase(newProgress, 'skin');
@@ -373,7 +399,7 @@ const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgress, onC
                                 key={trail.id}
                                 id={trail.id}
                                 name={trail.name}
-                                desc={trail.type}
+                                desc={trail.desc}
                                 type={trail.type}
                                 cost={trail.cost}
                                 color={trail.color}
@@ -403,6 +429,7 @@ const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgress, onC
                                 isOwned={(progress.unlockedSkins || ['default']).includes(skin.id)}
                                 isEquipped={(progress.equippedSkin || 'default') === skin.id}
                                 coins={progress.coins}
+                                isSkin={true}
                                 onBuy={() => buySkin(skin.id, skin.cost)}
                                 onEquip={() => equipSkin(skin.id)}
                                 onPreview={() => handlePreview(skin.id)}
