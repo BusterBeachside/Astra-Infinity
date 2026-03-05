@@ -92,7 +92,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     onMouseEnter={playHover}
                     className="px-3 py-1 bg-blue-600/20 border border-blue-600 text-blue-400 font-mono font-bold text-[10px] hover:bg-blue-600 hover:text-white transition-all"
                 >
-                    PILOT REGISTRY
+                    UNDERDOG ID
                 </button>
             </div>
 

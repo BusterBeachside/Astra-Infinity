@@ -50,6 +50,10 @@ export class AudioManager {
     }
 
     updateVolumes() {
+        if (this.isMuted) {
+            this.masterGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.1);
+            return;
+        }
         this.masterGain.gain.setTargetAtTime(this.masterVolume, this.ctx.currentTime, 0.1);
         this.musicGain.gain.setTargetAtTime(this.musicVolume, this.ctx.currentTime, 0.1);
         this.sfxGain.gain.setTargetAtTime(this.sfxVolume, this.ctx.currentTime, 0.1);
@@ -60,6 +64,12 @@ export class AudioManager {
             music: this.musicVolume,
             sfx: this.sfxVolume
         }));
+    }
+
+    private isMuted: boolean = false;
+    public setMuted(muted: boolean) {
+        this.isMuted = muted;
+        this.updateVolumes();
     }
     
     loadSettings() {

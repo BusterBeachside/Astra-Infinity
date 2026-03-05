@@ -48,7 +48,7 @@ const OnlineLeaderboard: React.FC<OnlineLeaderboardProps> = ({ onClose, onWatchR
                     <Trophy className="w-8 h-8 text-yellow-500" />
                     <h2 className="text-yellow-500 text-3xl font-black tracking-tighter italic uppercase">Global Hall of Fame</h2>
                 </div>
-                <div className="text-xs font-mono text-yellow-500/50 uppercase tracking-widest">Astra_Net // Top_Pilots</div>
+                <div className="text-xs font-mono text-yellow-500/50 uppercase tracking-widest">Underdog_ID // Top_Pilots</div>
             </div>
 
             {/* Mode Selector */}
@@ -113,7 +113,7 @@ const OnlineLeaderboard: React.FC<OnlineLeaderboardProps> = ({ onClose, onWatchR
                                         idx === 0 ? 'bg-yellow-500/5 border-yellow-500/20' : 'bg-black/40'
                                     }`}
                                     onMouseEnter={() => {
-                                        console.log("[Astra_Net] Hovered entry:", entry.username, "Metadata:", entry.metadata);
+                                        console.log("[Underdog_ID] Hovered entry:", entry.username, "Metadata:", entry.metadata);
                                         setHoveredEntry(entry);
                                     }}
                                     onMouseLeave={() => setHoveredEntry(null)}

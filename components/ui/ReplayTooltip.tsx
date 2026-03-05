@@ -15,7 +15,7 @@ export const ReplayTooltip: React.FC<ReplayTooltipProps> = ({ entry, mousePos })
     
     useEffect(() => {
         if (!metadataRaw) {
-            console.warn(`[Astra_Net] ReplayTooltip: Mission data archive missing for pilot "${(entry as any).username || (entry as any).name}"`, entry);
+            console.warn(`[Underdog_ID] ReplayTooltip: Mission data archive missing for pilot "${(entry as any).username || (entry as any).name}"`, entry);
         }
     }, [metadataRaw, entry]);
 

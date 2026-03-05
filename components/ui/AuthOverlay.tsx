@@ -17,11 +17,12 @@ interface AuthOverlayProps {
 }
 
 const AuthOverlay: React.FC<AuthOverlayProps> = ({ onClose, onLoginSuccess, userProgress, onShowLeaderboard, onPlayOffline, isInitialGate }) => {
-    const [view, setView] = useState<'login' | 'signup' | 'profile' | 'loading'>('loading');
-    const [loadingMessage, setLoadingMessage] = useState('SYNCHRONIZING WITH ASTRA_NET...');
+    const [view, setView] = useState<'login' | 'signup' | 'profile' | 'loading' | 'otp' | 'forgot_password'>('loading');
+    const [loadingMessage, setLoadingMessage] = useState('SYNCHRONIZING WITH UNDERDOG_ID...');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [username, setUsername] = useState('');
+    const [otpCode, setOtpCode] = useState('');
     const [isEditingUsername, setIsEditingUsername] = useState(false);
     const [tempUsername, setTempUsername] = useState('');
     const [error, setError] = useState<string | null>(null);
@@ -39,7 +40,7 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ onClose, onLoginSuccess, user
     }, []);
 
     const checkUser = async () => {
-        setLoadingMessage('SYNCHRONIZING WITH ASTRA_NET...');
+        setLoadingMessage('SYNCHRONIZING WITH UNDERDOG_ID...');
         setView('loading');
         const user = await supabaseService.getCurrentUser();
         if (user) {
@@ -60,7 +61,7 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ onClose, onLoginSuccess, user
         setError(null);
         setIsSubmitting(true);
         setLoadingMessage('AUTHORIZING PILOT...');
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabaseService.signIn(email, password);
         if (error) {
             setError(error.message);
             setIsSubmitting(false);
@@ -75,33 +76,57 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ onClose, onLoginSuccess, user
         setError(null);
         setIsSubmitting(true);
         setLoadingMessage('REGISTERING NEW PILOT...');
-        const { data, error } = await supabase.auth.signUp({ 
-            email, 
-            password,
-            options: {
-                data: { username }
-            }
-        });
+        const { data, error } = await supabaseService.signUp(email, password, username);
 
         if (error) {
             setError(error.message);
             setIsSubmitting(false);
         } else {
             if (data.user) {
-                // Create profile
+                // Create profile (optimistic, Supabase might not have user in 'profiles' yet if trigger isn't set up)
                 await supabaseService.updateProfile({ id: data.user.id, username });
-                setMessage("Check your email for a confirmation link!");
-                setView('login');
+                setMessage("An OTP code has been sent to your email.");
+                setView('otp');
             }
             setIsSubmitting(false);
         }
     };
 
+    const handleVerifyOtp = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setIsSubmitting(true);
+        setLoadingMessage('VERIFYING OTP...');
+        const { error } = await supabaseService.verifyOtp(email, otpCode, 'signup');
+        if (error) {
+            setError(error.message);
+            setIsSubmitting(false);
+        } else {
+            setMessage("Account verified! You can now log in.");
+            setView('login');
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleForgotPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setIsSubmitting(true);
+        setLoadingMessage('SENDING RESET LINK...');
+        const { error } = await supabaseService.resetPassword(email);
+        if (error) {
+            setError(error.message);
+        } else {
+            setMessage("Password reset link sent to your email.");
+            setView('login');
+        }
+        setIsSubmitting(false);
+    };
+
     const handleLogout = async () => {
         setLoadingMessage('DEAUTHORIZING...');
         setView('loading');
-        await supabase.auth.signOut();
-        supabaseService.clearUserCache();
+        await supabaseService.signOut();
         setProfile(null);
         setView('login');
     };
@@ -161,7 +186,7 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ onClose, onLoginSuccess, user
                 <div className="bg-blue-600/10 border-b border-blue-500/20 p-4 flex justify-between items-center">
                     <div className="flex items-center gap-2">
                         <Shield className="w-5 h-5 text-blue-400" />
-                        <h2 className="text-blue-400 font-mono font-bold tracking-widest uppercase">Pilot Registry</h2>
+                        <h2 className="text-blue-400 font-mono font-bold tracking-widest uppercase">Underdog ID</h2>
                     </div>
                     {!isInitialGate && (
                         <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
@@ -197,12 +222,21 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ onClose, onLoginSuccess, user
                                         <input 
                                             type="email" required value={email} onChange={e => setEmail(e.target.value)}
                                             className="w-full bg-black border border-gray-800 rounded p-2 pl-10 text-sm focus:border-blue-500 outline-none transition-colors"
-                                            placeholder="pilot@astra.net"
+                                            placeholder="pilot@underdog.id"
                                         />
                                     </div>
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-mono text-gray-500 uppercase">Security Key</label>
+                                    <div className="flex justify-between items-center">
+                                        <label className="text-[10px] font-mono text-gray-500 uppercase">Security Key</label>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setView('forgot_password')}
+                                            className="text-[9px] font-mono text-blue-400 hover:text-blue-300 uppercase"
+                                        >
+                                            Forgot?
+                                        </button>
+                                    </div>
                                     <div className="relative">
                                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
                                         <input 
@@ -234,7 +268,7 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ onClose, onLoginSuccess, user
                                             <span>Cloud Sync Information</span>
                                         </div>
                                         <p className="text-[9px] text-gray-500 leading-relaxed">
-                                            Registering a Pilot Callsign enables cross-device progression and global leaderboard eligibility. 
+                                            Underdog ID enables cross-game progression and global leaderboard eligibility. 
                                             Offline progress is saved locally but cannot be recovered if local data is cleared.
                                         </p>
                                     </div>
@@ -262,7 +296,7 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ onClose, onLoginSuccess, user
                                         type="button" onClick={() => setView('signup')}
                                         className="text-[10px] font-mono text-gray-500 hover:text-blue-400 transition-colors uppercase"
                                     >
-                                        New Pilot? Create Registry Entry
+                                        New Pilot? Create Underdog ID
                                     </button>
                                 </div>
                             </motion.form>
@@ -293,7 +327,7 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ onClose, onLoginSuccess, user
                                         <input 
                                             type="email" required value={email} onChange={e => setEmail(e.target.value)}
                                             className="w-full bg-black border border-gray-800 rounded p-2 pl-10 text-sm focus:border-blue-500 outline-none transition-colors"
-                                            placeholder="pilot@astra.net"
+                                            placeholder="pilot@underdog.id"
                                         />
                                     </div>
                                 </div>
@@ -316,34 +350,13 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ onClose, onLoginSuccess, user
                                     </div>
                                 )}
 
-                                {isInitialGate && (
-                                    <div className="bg-blue-500/5 border border-blue-500/20 p-3 rounded-lg">
-                                        <div className="flex items-center gap-2 text-blue-400 text-[10px] font-mono uppercase mb-1">
-                                            <AlertCircle className="w-3 h-3" />
-                                            <span>Cloud Sync Information</span>
-                                        </div>
-                                        <p className="text-[9px] text-gray-500 leading-relaxed">
-                                            Creating an account allows you to save your progress to the cloud and compete in global rankings.
-                                        </p>
-                                    </div>
-                                )}
-
                                 <button 
                                     type="submit" disabled={isSubmitting}
                                     className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-900 text-white font-bold py-3 rounded transition-all flex items-center justify-center gap-2"
                                 >
                                     {isSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-                                    REGISTER PILOT
+                                    REGISTER UNDERDOG ID
                                 </button>
-
-                                {onPlayOffline && (
-                                    <button 
-                                        type="button" onClick={onPlayOffline}
-                                        className="w-full bg-transparent border border-gray-800 hover:border-gray-600 text-gray-400 font-mono text-xs py-3 rounded transition-all flex items-center justify-center gap-2"
-                                    >
-                                        PLAY OFFLINE (LOCAL ONLY)
-                                    </button>
-                                )}
 
                                 <div className="text-center">
                                     <button 
@@ -351,6 +364,111 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ onClose, onLoginSuccess, user
                                         className="text-[10px] font-mono text-gray-500 hover:text-blue-400 transition-colors uppercase"
                                     >
                                         Already Registered? Authorize
+                                    </button>
+                                </div>
+                            </motion.form>
+                        )}
+
+                        {view === 'otp' && (
+                            <motion.form 
+                                key="otp"
+                                initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.1 }}
+                                onSubmit={handleVerifyOtp}
+                                className="space-y-4"
+                            >
+                                <div className="text-center space-y-2">
+                                    <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto">
+                                        <Mail className="w-6 h-6 text-blue-400" />
+                                    </div>
+                                    <h3 className="text-white font-bold">Verify Your Identity</h3>
+                                    <p className="text-[10px] text-gray-500 font-mono">
+                                        Enter the verification code sent to <span className="text-blue-400">{email}</span>
+                                    </p>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-mono text-gray-500 uppercase">OTP Code</label>
+                                    <input 
+                                        type="text" required value={otpCode} onChange={e => setOtpCode(e.target.value)}
+                                        className="w-full bg-black border border-gray-800 rounded p-3 text-center text-2xl font-mono tracking-[0.5em] focus:border-blue-500 outline-none transition-colors"
+                                        placeholder="00000000"
+                                        maxLength={8}
+                                    />
+                                </div>
+
+                                {error && (
+                                    <div className="bg-red-500/10 border border-red-500/30 p-2 rounded flex items-center gap-2 text-red-400 text-xs">
+                                        <AlertCircle className="w-4 h-4 shrink-0" />
+                                        <span>{error}</span>
+                                    </div>
+                                )}
+
+                                <button 
+                                    type="submit" disabled={isSubmitting}
+                                    className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-900 text-white font-bold py-3 rounded transition-all flex items-center justify-center gap-2"
+                                >
+                                    {isSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                    VERIFY ACCOUNT
+                                </button>
+
+                                <div className="text-center">
+                                    <button 
+                                        type="button" onClick={() => setView('signup')}
+                                        className="text-[10px] font-mono text-gray-500 hover:text-blue-400 transition-colors uppercase"
+                                    >
+                                        Back to Registration
+                                    </button>
+                                </div>
+                            </motion.form>
+                        )}
+
+                        {view === 'forgot_password' && (
+                            <motion.form 
+                                key="forgot_password"
+                                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                                onSubmit={handleForgotPassword}
+                                className="space-y-4"
+                            >
+                                <div className="text-center space-y-2">
+                                    <h3 className="text-white font-bold">Recover Underdog ID</h3>
+                                    <p className="text-[10px] text-gray-500 font-mono">
+                                        Enter your email and we'll send you a recovery link.
+                                    </p>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-mono text-gray-500 uppercase">Email Address</label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+                                        <input 
+                                            type="email" required value={email} onChange={e => setEmail(e.target.value)}
+                                            className="w-full bg-black border border-gray-800 rounded p-2 pl-10 text-sm focus:border-blue-500 outline-none transition-colors"
+                                            placeholder="pilot@underdog.id"
+                                        />
+                                    </div>
+                                </div>
+
+                                {error && (
+                                    <div className="bg-red-500/10 border border-red-500/30 p-2 rounded flex items-center gap-2 text-red-400 text-xs">
+                                        <AlertCircle className="w-4 h-4 shrink-0" />
+                                        <span>{error}</span>
+                                    </div>
+                                )}
+
+                                <button 
+                                    type="submit" disabled={isSubmitting}
+                                    className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-900 text-white font-bold py-3 rounded transition-all flex items-center justify-center gap-2"
+                                >
+                                    {isSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                    SEND RECOVERY LINK
+                                </button>
+
+                                <div className="text-center">
+                                    <button 
+                                        type="button" onClick={() => setView('login')}
+                                        className="text-[10px] font-mono text-gray-500 hover:text-blue-400 transition-colors uppercase"
+                                    >
+                                        Back to Authorization
                                     </button>
                                 </div>
                             </motion.form>
@@ -406,7 +524,7 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ onClose, onLoginSuccess, user
                                         ) : (
                                             <div className="text-xl font-bold text-white tracking-tight">{profile.username}</div>
                                         )}
-                                        <div className="text-[10px] font-mono text-gray-500">Astra_ID: {profile.id.slice(0, 8)}...</div>
+                                        <div className="text-[10px] font-mono text-gray-500">Underdog_ID: {profile.id.slice(0, 8)}...</div>
                                     </div>
                                 </div>
 
@@ -499,7 +617,7 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ onClose, onLoginSuccess, user
                             onClick={onClose}
                             className="text-[10px] font-mono text-gray-600 hover:text-white transition-colors uppercase tracking-widest"
                         >
-                            Close Registry
+                            Close Underdog ID
                         </button>
                     </div>
                 )}

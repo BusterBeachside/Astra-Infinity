@@ -1,4 +1,6 @@
 
+import { drawStandardShape } from './standardSkin';
+
 export const drawPatternSkin = (ctx: CanvasRenderingContext2D, visualRadius: number, skin: any) => {
     const c = skin.themeColor || '#34495e';
     const grad = ctx.createLinearGradient(-visualRadius, -visualRadius, visualRadius, visualRadius);
@@ -12,6 +14,11 @@ export const drawPatternOverlay = (ctx: CanvasRenderingContext2D, visualRadius: 
     const r = visualRadius;
     ctx.save();
     ctx.shadowBlur = 0; // No shadow for pattern
+    
+    // Explicitly redefine the path for clipping to ensure stability
+    ctx.beginPath();
+    drawStandardShape(ctx, skin, r);
+    ctx.closePath();
     ctx.clip(); // Clip to the current path (ship shape)
 
     // Seed the RNG with a hash of the skin ID to ensure the pattern is stable across frames

@@ -19,7 +19,7 @@ async function getGameId() {
     }
 
     if (!data) {
-        console.warn(`[Astra_Net] Game record for slug "${GAME_SLUG}" not found. Online features will be limited until the game is registered in the 'games' table.`);
+        console.warn(`[Underdog_ID] Game record for slug "${GAME_SLUG}" not found. Online features will be limited until the game is registered in the 'games' table.`);
         return null;
     }
 
@@ -188,7 +188,7 @@ export const supabaseService = {
                             .from('game-replays')
                             .remove([existingBest.replay_path]);
                     } catch (e) {
-                        console.warn("[Astra_Net] Could not delete old replay:", e);
+                        console.warn("[Underdog_ID] Could not delete old replay:", e);
                     }
                 }
 
@@ -206,7 +206,7 @@ export const supabaseService = {
                 if (!uploadError) {
                     replayPath = uploadData.path;
                 } else {
-                    console.error("[Astra_Net] Replay upload failed:", uploadError);
+                    console.error("[Underdog_ID] Replay upload failed:", uploadError);
                 }
             } else if (existingBest?.replay_path) {
                 // If we are no longer in Top 50 (unlikely if it was a personal best, but possible if others improved)
@@ -246,7 +246,7 @@ export const supabaseService = {
         }
         
         if (result.error) {
-            console.error("[Astra_Net] Error submitting score:", result.error);
+            console.error("[Underdog_ID] Error submitting score:", result.error);
         }
         
         return { error: result.error };
@@ -306,11 +306,11 @@ export const supabaseService = {
         }
         
         if (error) {
-            console.error("[Astra_Net] Error fetching leaderboard:", error);
+            console.error("[Underdog_ID] Error fetching leaderboard:", error);
             return [];
         }
 
-        console.log(`[Astra_Net] Fetched ${data.length} leaderboard entries for mode: ${mode}`, data[0]);
+        console.log(`[Underdog_ID] Fetched ${data.length} leaderboard entries for mode: ${mode}`, data[0]);
 
         return data.map((item: any) => ({
             id: item.id,
@@ -336,5 +336,47 @@ export const supabaseService = {
 
         const text = await data.text();
         return JSON.parse(text);
+    },
+
+    // --- Underdog ID Auth ---
+    async signUp(email: string, password: string, username: string) {
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: { username }
+            }
+        });
+        return { data, error };
+    },
+
+    async verifyOtp(email: string, token: string, type: 'signup' | 'recovery' | 'email_change' | 'invite') {
+        const { data, error } = await supabase.auth.verifyOtp({
+            email,
+            token,
+            type
+        });
+        return { data, error };
+    },
+
+    async signIn(email: string, password: string) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password
+        });
+        return { data, error };
+    },
+
+    async resetPassword(email: string) {
+        const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.origin
+        });
+        return { data, error };
+    },
+
+    async signOut() {
+        const { error } = await supabase.auth.signOut();
+        this.clearUserCache();
+        return { error };
     }
 };

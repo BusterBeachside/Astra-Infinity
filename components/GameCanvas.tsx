@@ -317,6 +317,16 @@ const GameCanvas: React.FC = () => {
       starsRef.current = Logic.initStars(width, height);
     };
     window.addEventListener('resize', handleResize);
+    
+    const handleVisibilityChange = () => {
+        if (document.hidden) {
+            audioManager.setMuted(true);
+        } else {
+            audioManager.setMuted(false);
+        }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     // Call resize on a slight delay to allow layout to settle (fixes mobile itch issue)
     setTimeout(handleResize, 100);
     setTimeout(handleResize, 500);
@@ -329,6 +339,7 @@ const GameCanvas: React.FC = () => {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       audioManager.stopMusic();
     };
   }, []);
