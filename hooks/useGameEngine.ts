@@ -7,6 +7,7 @@ import { useGameLoop } from './useGameLoop';
 
 interface UseGameEngineProps {
     canvasRef: React.RefObject<HTMLCanvasElement>;
+    containerRef: React.RefObject<HTMLDivElement>;
     uiState: any;
     setUiState: React.Dispatch<React.SetStateAction<any>>;
     viewRef: React.MutableRefObject<ViewState>;
@@ -32,6 +33,7 @@ interface UseGameEngineProps {
 export const useGameEngine = (props: UseGameEngineProps) => {
     const {
         canvasRef,
+        containerRef,
         setUiState,
         viewRef,
         setView,
@@ -65,6 +67,8 @@ export const useGameEngine = (props: UseGameEngineProps) => {
 
     const actions = useGameActions({
         ...state,
+        canvasRef,
+        containerRef,
         userProgressRef,
         debugMode,
         setUserProgress,

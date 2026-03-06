@@ -6,7 +6,7 @@ import { VisualRNG } from './rng';
 // Connecting Dots (Network) effect for Splash
 export const drawNetworkBackground = (ctx: CanvasRenderingContext2D, stars: Star[], width: number, height: number, dt: number) => {
     ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     
     // Update and draw stars as "nodes"
     const threshold = 100;
@@ -86,7 +86,7 @@ export const drawWarpBackground = (ctx: CanvasRenderingContext2D, width: number,
     ctx.globalCompositeOperation = 'source-over';
     const flash = (Math.sin(time / 50) + 1) / 2;
     ctx.fillStyle = `rgba(255, 255, 255, ${flash * 0.1})`;
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 };
 
 export const drawStars = (ctx: CanvasRenderingContext2D, stars: Star[], height: number) => {

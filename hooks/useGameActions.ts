@@ -27,6 +27,8 @@ interface UseGameActionsProps {
     lastFrameTime: React.MutableRefObject<number>;
     userProgressRef: React.MutableRefObject<UserProgress>;
     debugMode: React.MutableRefObject<boolean>;
+    canvasRef: React.RefObject<HTMLCanvasElement>;
+    containerRef: React.RefObject<HTMLDivElement>;
     setUserProgress: (p: UserProgress) => void;
     setUiState: (s: any) => void;
     setView: (v: ViewState) => void;
@@ -52,13 +54,28 @@ export const useGameActions = ({
     lastFrameTime,
     userProgressRef,
     debugMode,
+    canvasRef,
+    containerRef,
     setUserProgress,
     setUiState,
     setView,
     setHsInitials
 }: UseGameActionsProps) => {
 
+    const resetResolution = () => {
+        const width = containerRef.current?.clientWidth || window.innerWidth;
+        const height = containerRef.current?.clientHeight || window.innerHeight;
+        if (canvasRef.current) {
+            canvasRef.current.width = width;
+            canvasRef.current.height = height;
+        }
+        gameStateRef.current.width = width;
+        gameStateRef.current.height = height;
+        starsRef.current = Logic.initStars(width, height);
+    };
+
     const startGame = (mode: GameMode) => {
+        resetResolution();
         const startOffset = activeLoadout.current.rocketBoost ? 60 : 0;
         
         const seed = Date.now();
@@ -133,6 +150,7 @@ export const useGameActions = ({
     };
 
     const startPreview = (itemId: string, currentTab: 'modules' | 'trails' | 'skins', currentScroll: number) => {
+        resetResolution();
         const { width, height } = gameStateRef.current;
         audioManager.stopMusic();
 
@@ -180,8 +198,14 @@ export const useGameActions = ({
     };
 
     const startReplay = (replay: ReplayData) => {
-        const width = replay.width || gameStateRef.current.width;
-        const height = replay.height || gameStateRef.current.height;
+        const width = replay.width || 100;
+        const height = replay.height || 100;
+        
+        if (canvasRef.current) {
+            canvasRef.current.width = width;
+            canvasRef.current.height = height;
+        }
+        
         audioManager.stopMusic();
 
         RNG.seed(replay.seed);
@@ -437,6 +461,7 @@ export const useGameActions = ({
         startPreview,
         startReplay,
         startActualGameplay,
-        handleGameOver
+        handleGameOver,
+        resetResolution
     };
 };

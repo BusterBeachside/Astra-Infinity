@@ -193,9 +193,11 @@ const GameCanvas: React.FC = () => {
       startPreview,
       startReplay: engineStartReplay,
       startActualGameplay,
-      handleGameOver
+      handleGameOver,
+      resetResolution
   } = useGameEngine({
       canvasRef,
+      containerRef,
       uiState,
       setUiState,
       viewRef,
@@ -295,6 +297,8 @@ const GameCanvas: React.FC = () => {
     }
 
     const handleResize = () => {
+      if (gameStateRef.current.isReplay) return;
+      
       // Use window.innerHeight/Width as fallback if container is weirdly zero
       // This helps on mobile where 100dvh might be tricky with iframes
       const width = containerRef.current?.clientWidth || window.innerWidth;
@@ -374,16 +378,7 @@ const GameCanvas: React.FC = () => {
               gameStateRef.current.isReplay = false;
               gameStateRef.current.currentTimeScale = 1.0;
               
-              // Reset resolution to container size
-              const width = containerRef.current?.clientWidth || window.innerWidth;
-              const height = containerRef.current?.clientHeight || window.innerHeight;
-              if (canvasRef.current) {
-                canvasRef.current.width = width;
-                canvasRef.current.height = height;
-              }
-              gameStateRef.current.width = width;
-              gameStateRef.current.height = height;
-              starsRef.current = Logic.initStars(width, height);
+              resetResolution();
 
               setView(returnView);
               audioManager.playTitleTheme();
@@ -593,16 +588,7 @@ const GameCanvas: React.FC = () => {
               gameStateRef.current.isReplay = false;
               gameStateRef.current.currentTimeScale = 1.0;
               
-              // Reset resolution to container size
-              const width = containerRef.current?.clientWidth || window.innerWidth;
-              const height = containerRef.current?.clientHeight || window.innerHeight;
-              if (canvasRef.current) {
-                canvasRef.current.width = width;
-                canvasRef.current.height = height;
-              }
-              gameStateRef.current.width = width;
-              gameStateRef.current.height = height;
-              starsRef.current = Logic.initStars(width, height);
+              resetResolution();
 
               setView(returnView);
               audioManager.playTitleTheme();
@@ -624,7 +610,7 @@ const GameCanvas: React.FC = () => {
           setReplayFilter={setReplayFilter}
           setShopState={setShopState}
       />
-      <canvas ref={canvasRef} className="block" />
+      <canvas ref={canvasRef} className="block w-full h-full object-contain" />
     </div>
   );
 

@@ -46,8 +46,19 @@ export const useGameInput = ({
         if (!canvasRef.current) return;
         
         const rect = canvasRef.current.getBoundingClientRect();
-        let x = clientX - rect.left;
-        let y = clientY - rect.top;
+        const containerWidth = rect.width;
+        const containerHeight = rect.height;
+        const canvasInternalWidth = canvasRef.current.width;
+        const canvasInternalHeight = canvasRef.current.height;
+
+        // Calculate scale and offsets for object-fit: contain
+        const scale = Math.min(containerWidth / canvasInternalWidth, containerHeight / canvasInternalHeight);
+        const offsetX = (containerWidth - canvasInternalWidth * scale) / 2;
+        const offsetY = (containerHeight - canvasInternalHeight * scale) / 2;
+
+        // Map client coordinates to internal canvas coordinates
+        let x = (clientX - rect.left - offsetX) / scale;
+        let y = (clientY - rect.top - offsetY) / scale;
 
         // Mobile Offset: Hover just above touch point so finger doesn't obscure ship
         if (isTouch && !gameStateRef.current.waitingForInput) {
