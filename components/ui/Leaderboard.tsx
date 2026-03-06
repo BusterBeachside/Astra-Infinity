@@ -11,17 +11,24 @@ import { Play } from 'lucide-react';
 
 interface LeaderboardProps {
     initialMode: 'normal' | 'hardcore' | 'chaos';
+    onModeChange?: (mode: 'normal' | 'hardcore' | 'chaos') => void;
     onClose: () => void;
     onWatchReplay: (replay: ReplayData) => void;
     playClick: () => void;
     playHover: () => void;
 }
 
-const Leaderboard: React.FC<LeaderboardProps> = ({ initialMode, onClose, onWatchReplay, playClick, playHover }) => {
+const Leaderboard: React.FC<LeaderboardProps> = ({ initialMode, onModeChange, onClose, onWatchReplay, playClick, playHover }) => {
     const [viewedLeaderboardMode, setViewedLeaderboardMode] = useState<'normal' | 'hardcore' | 'chaos'>(initialMode);
     const [leaderboard, setLeaderboard] = useState<HighScoreEntry[]>([]);
     const [hoveredEntry, setHoveredEntry] = useState<HighScoreEntry | null>(null);
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+    const handleModeChange = (mode: 'normal' | 'hardcore' | 'chaos') => {
+        playClick();
+        setViewedLeaderboardMode(mode);
+        if (onModeChange) onModeChange(mode);
+    };
 
     useEffect(() => {
         setLeaderboard(fetchScores(viewedLeaderboardMode));
@@ -55,21 +62,21 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ initialMode, onClose, onWatch
              {/* Mode Toggles */}
              <div className="flex gap-4 mb-6">
                  <button 
-                      onClick={() => { playClick(); setViewedLeaderboardMode('normal'); }}
+                      onClick={() => handleModeChange('normal')}
                       onMouseEnter={playHover}
                       className={`px-4 py-2 font-mono text-sm border ${viewedLeaderboardMode === 'normal' ? 'bg-[#2ecc71] text-black border-[#2ecc71]' : 'text-[#2ecc71] border-[#2ecc71] hover:bg-[#2ecc71] hover:text-black'} transition-colors`}
                  >
                      NORMAL
                  </button>
                  <button 
-                      onClick={() => { playClick(); setViewedLeaderboardMode('hardcore'); }}
+                      onClick={() => handleModeChange('hardcore')}
                       onMouseEnter={playHover}
                       className={`px-4 py-2 font-mono text-sm border ${viewedLeaderboardMode === 'hardcore' ? 'bg-red-600 text-white border-red-600' : 'text-red-500 border-red-600 hover:bg-red-600 hover:text-white'} transition-colors`}
                  >
                      HARDCORE
                  </button>
                  <button 
-                      onClick={() => { playClick(); setViewedLeaderboardMode('chaos'); }}
+                      onClick={() => handleModeChange('chaos')}
                       onMouseEnter={playHover}
                       className={`px-4 py-2 font-mono text-sm border ${viewedLeaderboardMode === 'chaos' ? 'bg-orange-600 text-white border-orange-600' : 'text-orange-500 border-orange-600 hover:bg-orange-600 hover:text-white'} transition-colors`}
                  >

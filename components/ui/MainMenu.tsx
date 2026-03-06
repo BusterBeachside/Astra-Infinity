@@ -65,7 +65,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
   return (
     <div className="absolute inset-0 z-[60] flex flex-col items-center justify-center backdrop-blur-[1px]">
-        <div className="monitor-frame menu-animate-enter relative w-[320px] md:w-[400px] min-h-[600px] py-8 flex flex-col items-center justify-between rounded-xl overflow-hidden shadow-2xl">
+        <div className="monitor-frame menu-animate-enter relative w-[320px] min-h-[600px] py-8 flex flex-col items-center justify-between rounded-xl overflow-hidden shadow-2xl">
             
             <div className="absolute inset-0 overflow-hidden opacity-20 pointer-events-none z-0">
                 <div className="scrolling-code text-[#00ff00] font-mono text-xs leading-4 whitespace-pre p-2">
@@ -103,7 +103,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
             {/* Header Section */}
             <div className="relative z-10 flex flex-col items-center mt-4">
-                <h1 className="astra-logo text-3xl md:text-4xl text-center select-none menu-item-pop" style={{ animationDelay: '0.4s' }}>
+                <h1 className="astra-logo text-3xl text-center select-none menu-item-pop" style={{ animationDelay: '0.4s' }}>
                 ASTRA<br/>INFINITY
                 </h1>
             </div>

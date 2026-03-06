@@ -188,6 +188,7 @@ export interface HighScoreEntry {
     skinId?: string;
     trailType?: TrailType;
     mode?: string;
+    chaosModules?: ChaosModules;
   };
 }
 

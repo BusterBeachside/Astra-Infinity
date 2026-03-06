@@ -49,6 +49,11 @@ const GameCanvas: React.FC = () => {
   // Shop State Management
   const [shopState, setShopState] = useState<{ tab: 'modules' | 'trails' | 'skins', scroll: number }>({ tab: 'modules', scroll: 0 });
 
+  // Menu Memory States
+  const [leaderboardMode, setLeaderboardMode] = useState<'normal' | 'hardcore' | 'chaos'>('normal');
+  const [onlineLeaderboardMode, setOnlineLeaderboardMode] = useState<'normal' | 'hardcore' | 'chaos'>('normal');
+  const [replayFilter, setReplayFilter] = useState<GameMode | 'all'>('all');
+
   // Tutorial State
   const [activeTutorial, setActiveTutorial] = useState<{ id: string; title: string; message: string; nextTimeJump?: number; spawnPowerup?: boolean } | null>(null);
 
@@ -347,17 +352,45 @@ const GameCanvas: React.FC = () => {
   const handleSplashClick = async () => {
       // Ensure audio context is resumed on user gesture
       await audioManager.resumeContext();
-      audioManager.playTitleTheme();
-      playClick();
       
-      // Check if user is already logged in
-      const user = await supabaseService.getCurrentUser();
-      if (user) {
-          await syncOnlineData();
-          setView('menu');
-      } else {
-          setUiState(prev => ({ ...prev, isInitialGate: true }));
-          setView('auth');
+      if (uiState.view === 'splash') {
+          audioManager.playTitleTheme();
+          playClick();
+          
+          // Check if user is already logged in
+          const user = await supabaseService.getCurrentUser();
+          if (user) {
+              await syncOnlineData();
+              setView('menu');
+          } else {
+              setUiState(prev => ({ ...prev, isInitialGate: true }));
+              setView('auth');
+          }
+      } else if (uiState.view === 'gameover') {
+          playClick();
+          if (gameStateRef.current.isReplay) {
+              // Exit replay logic
+              gameStateRef.current.isActive = false;
+              gameStateRef.current.isReplay = false;
+              gameStateRef.current.currentTimeScale = 1.0;
+              
+              // Reset resolution to container size
+              const width = containerRef.current?.clientWidth || window.innerWidth;
+              const height = containerRef.current?.clientHeight || window.innerHeight;
+              if (canvasRef.current) {
+                canvasRef.current.width = width;
+                canvasRef.current.height = height;
+              }
+              gameStateRef.current.width = width;
+              gameStateRef.current.height = height;
+              starsRef.current = Logic.initStars(width, height);
+
+              setView(returnView);
+              audioManager.playTitleTheme();
+          } else {
+              setView('menu');
+              audioManager.playTitleTheme();
+          }
       }
   };
 
@@ -406,7 +439,8 @@ const GameCanvas: React.FC = () => {
           skinId: userProgress.equippedSkin,
           trailType: userProgress.equippedTrail,
           avatarId: userProgressRef.current.stats.totalRuns > 0 ? (await supabaseService.getProfile(user?.id || ''))?.avatar_id : undefined,
-          mode
+          mode,
+          chaosModules: gs.chaosModules
       };
 
       try {
@@ -558,6 +592,18 @@ const GameCanvas: React.FC = () => {
               gameStateRef.current.isActive = false;
               gameStateRef.current.isReplay = false;
               gameStateRef.current.currentTimeScale = 1.0;
+              
+              // Reset resolution to container size
+              const width = containerRef.current?.clientWidth || window.innerWidth;
+              const height = containerRef.current?.clientHeight || window.innerHeight;
+              if (canvasRef.current) {
+                canvasRef.current.width = width;
+                canvasRef.current.height = height;
+              }
+              gameStateRef.current.width = width;
+              gameStateRef.current.height = height;
+              starsRef.current = Logic.initStars(width, height);
+
               setView(returnView);
               audioManager.playTitleTheme();
           }}
@@ -570,6 +616,13 @@ const GameCanvas: React.FC = () => {
           onLoginSuccess={syncOnlineData}
           onPlayOffline={handlePlayOffline}
           onWatchOnlineReplay={handleWatchOnlineReplay}
+          leaderboardMode={leaderboardMode}
+          setLeaderboardMode={setLeaderboardMode}
+          onlineLeaderboardMode={onlineLeaderboardMode}
+          setOnlineLeaderboardMode={setOnlineLeaderboardMode}
+          replayFilter={replayFilter}
+          setReplayFilter={setReplayFilter}
+          setShopState={setShopState}
       />
       <canvas ref={canvasRef} className="block" />
     </div>

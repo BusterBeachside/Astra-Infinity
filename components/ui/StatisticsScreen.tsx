@@ -144,7 +144,7 @@ const StatisticsScreen: React.FC<StatisticsScreenProps> = ({ progress, onClose, 
                     </div>
 
                     <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="grid grid-cols-2 gap-8">
                             {/* Survival Section */}
                             <div className="space-y-4">
                                 <h3 className="text-blue-400 font-mono text-[10px] font-bold tracking-[0.2em] uppercase opacity-70 border-l-2 border-blue-500 pl-2">Survival Data</h3>
@@ -196,7 +196,7 @@ const StatisticsScreen: React.FC<StatisticsScreenProps> = ({ progress, onClose, 
                         {/* Death List */}
                         <div className="mt-8 pt-6 border-t border-blue-500/20">
                             <h3 className="text-blue-400 font-mono text-[10px] font-bold tracking-[0.2em] uppercase opacity-70 mb-6 text-center">Threat Analysis</h3>
-                            <div className="grid grid-cols-4 sm:grid-cols-7 gap-4">
+                            <div className="grid grid-cols-7 gap-4">
                                 {deathList.map(death => (
                                     <div key={death.type} className="bg-white/5 border border-white/10 p-4 rounded flex flex-col items-center gap-3 hover:bg-white/10 transition-colors">
                                         <EnemyIcon type={death.type} size={24} />

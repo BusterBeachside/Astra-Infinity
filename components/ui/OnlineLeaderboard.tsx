@@ -8,16 +8,23 @@ import { AvatarIcon } from './AvatarIcon';
 import { ReplayTooltip } from './ReplayTooltip';
 
 interface OnlineLeaderboardProps {
+    initialMode?: 'normal' | 'hardcore' | 'chaos';
+    onModeChange?: (mode: 'normal' | 'hardcore' | 'chaos') => void;
     onClose: () => void;
     onWatchReplay: (replayPath: string) => void;
 }
 
-const OnlineLeaderboard: React.FC<OnlineLeaderboardProps> = ({ onClose, onWatchReplay }) => {
-    const [mode, setMode] = useState<'normal' | 'hardcore' | 'chaos'>('normal');
+const OnlineLeaderboard: React.FC<OnlineLeaderboardProps> = ({ initialMode, onModeChange, onClose, onWatchReplay }) => {
+    const [mode, setMode] = useState<'normal' | 'hardcore' | 'chaos'>(initialMode || 'normal');
     const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [hoveredEntry, setHoveredEntry] = useState<LeaderboardEntry | null>(null);
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+    const handleModeChange = (m: 'normal' | 'hardcore' | 'chaos') => {
+        setMode(m);
+        if (onModeChange) onModeChange(m);
+    };
 
     useEffect(() => {
         fetchLeaderboard();
@@ -56,7 +63,7 @@ const OnlineLeaderboard: React.FC<OnlineLeaderboardProps> = ({ onClose, onWatchR
                 {(['normal', 'hardcore', 'chaos'] as const).map(m => (
                     <button
                         key={m}
-                        onClick={() => setMode(m)}
+                        onClick={() => handleModeChange(m)}
                         className={`px-6 py-2 font-mono text-xs font-bold uppercase tracking-widest border transition-all ${
                             mode === m 
                             ? 'bg-yellow-500 text-black border-yellow-500 shadow-[0_0_15px_rgba(241,196,15,0.3)]' 

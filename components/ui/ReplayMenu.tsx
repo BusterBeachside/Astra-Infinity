@@ -8,15 +8,23 @@ interface ReplayMenuProps {
     onClose: () => void;
     playClick: () => void;
     playHover: () => void;
+    initialFilter?: GameMode | 'all';
+    onFilterChange?: (filter: GameMode | 'all') => void;
 }
 
 type SortField = 'date' | 'duration' | 'grazeTime' | 'score' | 'showboats' | 'size';
 
-const ReplayMenu: React.FC<ReplayMenuProps> = ({ onPlayReplay, onClose, playClick, playHover }) => {
+const ReplayMenu: React.FC<ReplayMenuProps> = ({ onPlayReplay, onClose, playClick, playHover, initialFilter, onFilterChange }) => {
     const [replays, setReplays] = useState<ReplayData[]>([]);
     const [sortBy, setSortBy] = useState<SortField>('date');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-    const [filterMode, setFilterMode] = useState<GameMode | 'all'>('all');
+    const [filterMode, setFilterMode] = useState<GameMode | 'all'>(initialFilter || 'all');
+
+    const handleFilterChange = (mode: GameMode | 'all') => {
+        playClick();
+        setFilterMode(mode);
+        if (onFilterChange) onFilterChange(mode);
+    };
 
     useEffect(() => {
         setReplays(getReplays());
@@ -123,10 +131,10 @@ const ReplayMenu: React.FC<ReplayMenuProps> = ({ onPlayReplay, onClose, playClic
                     <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500 uppercase">Filter:</span>
                         <div className="flex border border-gray-700 rounded overflow-hidden">
-                            {(['all', 'normal', 'hardcore'] as const).map(mode => (
+                            {(['all', 'normal', 'hardcore', 'chaos'] as const).map(mode => (
                                 <button
                                     key={mode}
-                                    onClick={() => { playClick(); setFilterMode(mode); }}
+                                    onClick={() => handleFilterChange(mode)}
                                     className={`px-3 py-1 text-xs uppercase transition-colors ${filterMode === mode ? 'bg-cyan-600 text-white' : 'bg-black text-gray-400 hover:bg-gray-900'}`}
                                 >
                                     {mode}
@@ -159,7 +167,7 @@ const ReplayMenu: React.FC<ReplayMenuProps> = ({ onPlayReplay, onClose, playClic
                         >
                             <div className="flex justify-between items-center">
                                 <div className="flex-1">
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-bold">
+                                    <div className="grid grid-cols-4 gap-2 text-xs font-bold">
                                         <div className="text-white">TIME: <span className="text-cyan-400">{formatDuration(replay.duration)}</span></div>
                                         <div className="text-white">COINS: <span className="text-yellow-400">{Math.floor(replay.score)}</span></div>
                                         <div className="text-white">GRAZE: <span className="text-orange-400">{formatDuration(replay.grazeTime || 0)}</span></div>
@@ -169,13 +177,32 @@ const ReplayMenu: React.FC<ReplayMenuProps> = ({ onPlayReplay, onClose, playClic
                                         <div className="text-[10px] text-gray-500">
                                             {new Date(replay.date).toLocaleDateString()} {new Date(replay.date).toLocaleTimeString()}
                                         </div>
-                                        <span className={`text-[9px] px-1.5 py-0.5 rounded border ${replay.gameMode === 'hardcore' ? 'border-red-500/50 text-red-500/70' : 'border-blue-500/50 text-blue-500/70'} uppercase font-bold`}>
+                                        <span className={`text-[9px] px-1.5 py-0.5 rounded border ${
+                                            replay.gameMode === 'hardcore' ? 'border-red-500/50 text-red-500/70' : 
+                                            replay.gameMode === 'chaos' ? 'border-orange-500/50 text-orange-500/70' :
+                                            'border-blue-500/50 text-blue-500/70'
+                                        } uppercase font-bold`}>
                                             {replay.gameMode}
                                         </span>
                                         <div className="text-[10px] text-gray-600 uppercase">
                                             Size: {formatSize(replay.size)}
                                         </div>
                                     </div>
+
+                                    {/* Chaos Modules Display */}
+                                    {replay.chaosModules && (
+                                        <div className="flex gap-2 mt-1.5">
+                                            {replay.chaosModules.brrrrrr && (
+                                                <span className="text-[8px] bg-orange-900/30 text-orange-400 px-1.5 py-0.5 rounded border border-orange-500/20 font-mono tracking-wider">BRRRRRR</span>
+                                            )}
+                                            {replay.chaosModules.theyHateYou && (
+                                                <span className="text-[8px] bg-red-900/30 text-red-400 px-1.5 py-0.5 rounded border border-red-500/20 font-mono tracking-wider">HATE</span>
+                                            )}
+                                            {replay.chaosModules.onTop && (
+                                                <span className="text-[8px] bg-purple-900/30 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/20 font-mono tracking-wider">ON TOP</span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                                 <button 
                                     onClick={(e) => handleDelete(replay.id, e)}

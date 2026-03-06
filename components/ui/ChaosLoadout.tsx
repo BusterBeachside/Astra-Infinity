@@ -35,7 +35,7 @@ const ChaosLoadout: React.FC<ChaosLoadoutProps> = ({ onStart, onCancel, playClic
 
   return (
     <div className="absolute inset-0 z-[70] flex flex-col items-center justify-center bg-black/90 backdrop-blur-md">
-      <div className="monitor-frame relative w-[340px] md:w-[420px] p-8 rounded-xl border-2 border-orange-500 shadow-[0_0_30px_rgba(249,115,22,0.3)] flex flex-col items-center">
+      <div className="monitor-frame relative w-[340px] p-8 rounded-xl border-2 border-orange-500 shadow-[0_0_30px_rgba(249,115,22,0.3)] flex flex-col items-center">
         <div className="scanlines absolute inset-0 z-0 opacity-20 pointer-events-none"></div>
         
         <h2 className="text-2xl font-mono font-black text-orange-500 mb-2 tracking-tighter animate-pulse">

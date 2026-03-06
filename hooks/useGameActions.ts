@@ -195,6 +195,9 @@ export const useGameActions = ({
 
         const startOffset = replay.loadout?.rocketBoost ? 60 : 0;
 
+        // Ensure chaos modules are loaded correctly, checking both root and loadout
+        const chaosModules = replay.chaosModules || replay.loadout?.chaosModules;
+
         gameStateRef.current = {
             ...getInitialGameState(width, height),
             isActive: true,
@@ -208,7 +211,7 @@ export const useGameActions = ({
             lastSpawnTime: 0,
             lastPowerupTime: 0,
             lastCheckpointMinute: Math.floor(startOffset / 60),
-            chaosModules: replay.chaosModules
+            chaosModules: chaosModules
         };
         
         obstaclesRef.current = [];
@@ -397,10 +400,24 @@ export const useGameActions = ({
         
         gs.currentTimeScale = 0.1;
 
+        if (gs.isReplay) {
+            gs.isPaused = true;
+            setUiState((prev: any) => ({ ...prev, isPaused: true }));
+        }
+
         setTimeout(() => {
             const mode = gs.gameMode;
             if ((mode === 'normal' || mode === 'hardcore' || mode === 'chaos') && !gs.isReplay && !debugMode.current) {
-                const isHigh = Storage.checkIsHighScore(gs.elapsedTime, mode);
+                // Check Chaos Eligibility
+                let isEligible = true;
+                if (mode === 'chaos') {
+                    const modules = gs.chaosModules;
+                    if (!modules || !modules.brrrrrr || !modules.theyHateYou || !modules.onTop) {
+                        isEligible = false;
+                    }
+                }
+
+                const isHigh = isEligible && Storage.checkIsHighScore(gs.elapsedTime, mode);
                 
                 if (isHigh) {
                     const lastInitials = localStorage.getItem('stellar_last_initials') || '';

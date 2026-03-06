@@ -50,6 +50,14 @@ interface GameOverlayProps {
     activeReplay: ReplayData | null;
     replaySpeed: number;
     
+    leaderboardMode: 'normal' | 'hardcore' | 'chaos';
+    setLeaderboardMode: (m: 'normal' | 'hardcore' | 'chaos') => void;
+    onlineLeaderboardMode: 'normal' | 'hardcore' | 'chaos';
+    setOnlineLeaderboardMode: (m: 'normal' | 'hardcore' | 'chaos') => void;
+    replayFilter: GameMode | 'all';
+    setReplayFilter: (f: GameMode | 'all') => void;
+    setShopState: React.Dispatch<React.SetStateAction<{ tab: 'modules' | 'trails' | 'skins'; scroll: number }>>;
+    
     // Refs
     warpRef: React.RefObject<HTMLDivElement>;
     fpsRef: React.RefObject<HTMLDivElement>;
@@ -99,6 +107,8 @@ const GameOverlay: React.FC<GameOverlayProps> = ({
     uiState, gameState, userProgress, player, settings, activeTutorial, floatingTexts,
     hsInitials, debugMode, heatmapSettings, showChallenges, shopState, pendingMode,
     activeReplay, replaySpeed,
+    leaderboardMode, setLeaderboardMode, onlineLeaderboardMode, setOnlineLeaderboardMode,
+    replayFilter, setReplayFilter, setShopState,
     warpRef, fpsRef, timerRef, riskBarRef, riskTextRef, riskContainerRef, replayTimerRef,
     setUiState, setView, setUserProgress, setHeatmapSettings, setHsInitials,
     setShowChallenges, setActiveTutorial, togglePause, startGame, startPreview,
@@ -353,6 +363,7 @@ const GameOverlay: React.FC<GameOverlayProps> = ({
                   playHover={playHover}
                   initialTab={shopState.tab}
                   initialScroll={shopState.scroll}
+                  onStateChange={(tab, scroll) => setShopState({ tab, scroll })}
               />
             )}
 
@@ -413,7 +424,8 @@ const GameOverlay: React.FC<GameOverlayProps> = ({
 
             {uiState.view === 'highscore_board' && (
               <Leaderboard 
-                  initialMode={(gameState.gameMode === 'preview' || gameState.gameMode === 'practice' || gameState.gameMode === 'tutorial') ? 'normal' : gameState.gameMode as 'normal' | 'hardcore' | 'chaos'}
+                  initialMode={leaderboardMode}
+                  onModeChange={setLeaderboardMode}
                   onClose={() => setView('menu')}
                   onWatchReplay={startReplay}
                   playClick={playClick}
@@ -434,6 +446,8 @@ const GameOverlay: React.FC<GameOverlayProps> = ({
                     onClose={() => setView('menu')}
                     playClick={playClick}
                     playHover={playHover}
+                    initialFilter={replayFilter}
+                    onFilterChange={setReplayFilter}
                 />
             )}
 
@@ -450,6 +464,8 @@ const GameOverlay: React.FC<GameOverlayProps> = ({
 
             {uiState.view === 'online_leaderboard' && (
                 <OnlineLeaderboard 
+                    initialMode={onlineLeaderboardMode}
+                    onModeChange={setOnlineLeaderboardMode}
                     onClose={() => setView('menu')}
                     onWatchReplay={onWatchOnlineReplay}
                 />
@@ -501,7 +517,12 @@ const GameOverlay: React.FC<GameOverlayProps> = ({
 
                         <button 
                             onClick={exitReplay}
-                            className="text-red-400 hover:text-red-200 text-xs font-bold border border-red-500/50 px-2 py-1 rounded hover:bg-red-500/20"
+                            disabled={gameState.isGameOver}
+                            className={`text-xs font-bold border px-2 py-1 rounded transition-all ${
+                                gameState.isGameOver 
+                                ? 'text-gray-600 border-gray-800 cursor-not-allowed' 
+                                : 'text-red-400 hover:text-red-200 border-red-500/50 hover:bg-red-500/20'
+                            }`}
                         >
                             EXIT
                         </button>

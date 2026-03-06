@@ -16,6 +16,7 @@ interface ShopScreenProps {
     playHover: () => void;
     initialTab?: 'modules' | 'trails' | 'skins';
     initialScroll?: number;
+    onStateChange?: (tab: 'modules' | 'trails' | 'skins', scroll: number) => void;
 }
 
 const UpgradeItem: React.FC<{
@@ -147,9 +148,18 @@ const ShopItem: React.FC<{
     );
 };
 
-const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgress, onClose, onPreview, playClick, playHover, initialTab, initialScroll }) => {
+const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgress, onClose, onPreview, playClick, playHover, initialTab, initialScroll, onStateChange }) => {
     const [tab, setTab] = useState<'modules' | 'trails' | 'skins'>(initialTab || 'modules');
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const handleTabChange = (newTab: 'modules' | 'trails' | 'skins') => {
+        playClick();
+        setTab(newTab);
+        if (onStateChange) {
+            const scrollPos = scrollContainerRef.current ? scrollContainerRef.current.scrollTop : 0;
+            onStateChange(newTab, scrollPos);
+        }
+    };
 
     // Restore scroll position when tab or initialScroll changes
     useLayoutEffect(() => {
@@ -282,6 +292,15 @@ const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgress, onC
         });
     };
 
+    const handleClose = () => {
+        playClick();
+        if (onStateChange) {
+            const scrollPos = scrollContainerRef.current ? scrollContainerRef.current.scrollTop : 0;
+            onStateChange(tab, scrollPos);
+        }
+        onClose();
+    };
+
     return (
         <div className="absolute inset-0 z-[80] flex flex-col items-center justify-center bg-black/95 text-white p-6">
              <div className="flex justify-between items-center w-full max-w-md mb-6 border-b-2 border-[#9b59b6] pb-2">
@@ -297,19 +316,19 @@ const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgress, onC
              {/* TABS */}
              <div className="flex w-full max-w-md mb-4 gap-2">
                  <button 
-                    onClick={() => { setTab('modules'); playClick(); }}
+                    onClick={() => handleTabChange('modules')}
                     className={`flex-1 py-2 font-mono font-bold border-b-2 transition-colors ${tab === 'modules' ? 'text-white border-white' : 'text-gray-500 border-gray-800 hover:text-gray-300'}`}
                  >
                      MODULES
                  </button>
                  <button 
-                    onClick={() => { setTab('trails'); playClick(); }}
+                    onClick={() => handleTabChange('trails')}
                     className={`flex-1 py-2 font-mono font-bold border-b-2 transition-colors ${tab === 'trails' ? 'text-white border-white' : 'text-gray-500 border-gray-800 hover:text-gray-300'}`}
                  >
                      TRAILS
                  </button>
                  <button 
-                    onClick={() => { setTab('skins'); playClick(); }}
+                    onClick={() => handleTabChange('skins')}
                     className={`flex-1 py-2 font-mono font-bold border-b-2 transition-colors ${tab === 'skins' ? 'text-white border-white' : 'text-gray-500 border-gray-800 hover:text-gray-300'}`}
                  >
                      SKINS
@@ -441,7 +460,7 @@ const ShopScreen: React.FC<ShopScreenProps> = ({ progress, onUpdateProgress, onC
              </div>
 
              <button 
-              onClick={() => { playClick(); onClose(); }}
+              onClick={handleClose}
               onMouseEnter={playHover}
               className="mt-6 text-[#9b59b6] border border-[#9b59b6] px-8 py-3 hover:bg-[#9b59b6] hover:text-black transition-colors font-bold font-mono"
              >

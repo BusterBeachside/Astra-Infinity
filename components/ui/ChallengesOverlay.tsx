@@ -50,10 +50,10 @@ const ChallengesOverlay: React.FC<ChallengesOverlayProps> = ({ challenges, progr
                 <div className="text-xs font-mono text-blue-500/50 uppercase tracking-widest">Astra_OS // Challenge_Matrix</div>
             </div>
 
-            <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto overflow-x-hidden max-h-[70vh] pr-2 custom-scrollbar">
+            <div className="w-full max-w-4xl grid grid-cols-2 gap-8 overflow-y-auto overflow-x-hidden max-h-[70vh] pr-2 custom-scrollbar">
                 
                 {/* Progression Column */}
-                <div className="col-span-1 md:col-span-2 space-y-4 border-b border-gray-800 pb-6 mb-2">
+                <div className="col-span-2 space-y-4 border-b border-gray-800 pb-6 mb-2">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
@@ -68,7 +68,7 @@ const ChallengesOverlay: React.FC<ChallengesOverlayProps> = ({ challenges, progr
                     </div>
 
                     {showAllProgression ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
                             {PROGRESSION_MISSIONS.map((pm, idx) => {
                                 const isCompleted = idx < progressionIndex;
                                 const isActive = idx === progressionIndex;
@@ -102,7 +102,7 @@ const ChallengesOverlay: React.FC<ChallengesOverlayProps> = ({ challenges, progr
                             })}
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
                             <AnimatePresence mode="popLayout" initial={false}>
                                 {activeProgression ? (
                                     <ChallengeCard key={activeProgression.id} challenge={activeProgression} onClaim={onClaim} onReroll={onReroll} userCoins={userCoins} />
