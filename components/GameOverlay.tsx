@@ -190,6 +190,7 @@ const GameOverlay: React.FC<GameOverlayProps> = ({
                                     gameState.isPaused = false;
                                     gameState.isActive = false;
                                     gameState.currentTimeScale = 1.0;
+                                    if (warpRef.current) warpRef.current.style.opacity = '0';
                                     setView('menu');
                                     audioManager.playTitleTheme();
                                 }}

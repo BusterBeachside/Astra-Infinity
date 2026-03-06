@@ -78,9 +78,8 @@ const OnlineLeaderboard: React.FC<OnlineLeaderboardProps> = ({ initialMode, onMo
             {/* Table Header */}
             <div className="w-full max-w-4xl grid grid-cols-12 gap-4 px-4 py-2 bg-yellow-500/10 border-y border-yellow-500/20 text-[10px] font-mono text-yellow-500 uppercase tracking-widest mb-2">
                 <div className="col-span-1">Rank</div>
-                <div className="col-span-5">Pilot Callsign</div>
-                <div className="col-span-3">Time Survived</div>
-                <div className="col-span-2">Date</div>
+                <div className="col-span-8">Pilot & Performance</div>
+                <div className="col-span-2 hidden sm:block">Date</div>
                 <div className="col-span-1 text-right">Replay</div>
             </div>
 
@@ -130,22 +129,24 @@ const OnlineLeaderboard: React.FC<OnlineLeaderboardProps> = ({ initialMode, onMo
                                     }`}>
                                         #{idx + 1}
                                     </div>
-                                    <div className="col-span-5 flex items-center gap-3">
-                                        <AvatarIcon 
-                                            avatarId={entry.avatar_id || ''} 
-                                            avatarUrl={entry.avatar_url}
-                                            size={32} 
-                                            className="ring-2 ring-yellow-500/20 shadow-[0_0_10px_rgba(241,196,15,0.2)]"
-                                        />
-                                        <div className="font-bold text-white tracking-tight">{entry.username}</div>
+                                    <div className="col-span-8 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-6">
+                                        <div className="flex items-center gap-3">
+                                            <AvatarIcon 
+                                                avatarId={entry.avatar_id || ''} 
+                                                avatarUrl={entry.avatar_url}
+                                                size={32} 
+                                                className="ring-2 ring-yellow-500/20 shadow-[0_0_10px_rgba(241,196,15,0.2)]"
+                                            />
+                                            <div className="font-bold text-white tracking-tight break-all sm:break-normal line-clamp-1 sm:line-clamp-none">{entry.username}</div>
+                                        </div>
+                                        <div className="font-mono text-yellow-500 font-bold text-xs sm:text-sm whitespace-nowrap">
+                                            {Math.floor(entry.score / 60)}m {Math.floor(entry.score % 60)}s
+                                        </div>
                                     </div>
-                                    <div className="col-span-3 font-mono text-yellow-500 font-bold">
-                                        {Math.floor(entry.score / 60)}m {Math.floor(entry.score % 60)}s
-                                    </div>
-                                    <div className="col-span-2 text-[10px] font-mono text-gray-500">
+                                    <div className="col-span-2 text-[10px] font-mono text-gray-500 hidden sm:block">
                                         {format(new Date(entry.created_at), 'MMM dd, yyyy')}
                                     </div>
-                                    <div className="col-span-1 text-right">
+                                    <div className="col-span-1 sm:col-span-1 text-right flex justify-end">
                                         {entry.replay_path && (
                                             <button 
                                                 onClick={() => onWatchReplay(entry.replay_path!)}

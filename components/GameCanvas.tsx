@@ -624,6 +624,7 @@ const GameCanvas: React.FC = () => {
               gameStateRef.current.isActive = false;
               gameStateRef.current.isReplay = false;
               gameStateRef.current.currentTimeScale = 1.0;
+              if (warpRef.current) warpRef.current.style.opacity = '0';
               
               resetResolution();
 

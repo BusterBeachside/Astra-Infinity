@@ -89,9 +89,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ initialMode, onModeChange, on
                      <div className="text-center text-gray-500 py-10">NO DATA FOUND FOR {viewedLeaderboardMode.toUpperCase()}</div>
                  ) : (
                      leaderboard.map((entry, idx) => (
-                                                   <div 
+                        <div 
                             key={idx} 
-                            className="flex justify-between items-center py-2 border-b border-gray-800 text-gray-300 hover:bg-white/5 px-2 transition-colors relative"
+                            className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-2 border-b border-gray-800 text-gray-300 hover:bg-white/5 px-2 transition-colors relative gap-1 sm:gap-0"
                             onMouseEnter={() => setHoveredEntry(entry)}
                             onMouseLeave={() => setHoveredEntry(null)}
                           >
@@ -102,7 +102,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ initialMode, onModeChange, on
                                       size={24} 
                                       className="ring-1 ring-white/10"
                                   />
-                                  <span>{idx + 1}. {entry.name}</span>
+                                  <span className="truncate max-w-[200px] sm:max-w-none">{idx + 1}. {entry.name}</span>
                                  {entry.replayId && (
                                      <button 
                                         onClick={() => handleWatch(entry.replayId!)}
@@ -114,7 +114,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ initialMode, onModeChange, on
                                      </button>
                                  )}
                              </div>
-                             <span>{format(entry.score)}</span>
+                             <span className="text-sm sm:text-lg font-bold text-[#3498db] sm:text-gray-300">{format(entry.score)}</span>
                          </div>
                      ))
                  )}

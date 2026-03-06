@@ -599,6 +599,9 @@ export const useGameLoop = ({
             if (ctx) {
                 drawNetworkBackground(ctx, starsRef.current, gs.width, gs.height, dtRawClamped);
             }
+            if (warpRef.current && warpRef.current.style.opacity !== '0') {
+                warpRef.current.style.opacity = '0';
+            }
             animationFrameId.current = requestAnimationFrame(update);
             return;
         }
