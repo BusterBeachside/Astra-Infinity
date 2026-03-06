@@ -269,6 +269,49 @@ const GameCanvas: React.FC = () => {
   const playHover = () => audioManager.playSfx('ui_hover');
   const playClick = () => audioManager.playSfx('ui_click');
 
+  const checkDailyReset = useCallback(() => {
+    const today = ChallengeService.getTodayString();
+    const progress = userProgressRef.current;
+    
+    if (progress.lastChallengeDate !== today) {
+        // Filter out old daily missions
+        const nonDaily = progress.activeChallenges.filter(c => c.type !== 'daily');
+        
+        // Generate new daily missions
+        const daily = ChallengeService.generateDailyChallenges(progress.lastChallengeDate, nonDaily, progress);
+        
+        // If it's a new day, we also refresh repeatable missions to give a fresh start
+        const repeatable = ChallengeService.generateRepeatableChallenges(3, daily, progress);
+        
+        const newProgress = {
+            ...progress,
+            activeChallenges: [...daily, ...repeatable, ...nonDaily.filter(c => c.type === 'progression')],
+            lastChallengeDate: today
+        };
+        setUserProgress(newProgress);
+        
+        audioManager.playSfx('checkpoint');
+    } else {
+        // Even if it's the same day, ensure we have daily missions if they are missing for some reason
+        const dailyMissions = progress.activeChallenges.filter(c => c.type === 'daily');
+        if (dailyMissions.length === 0) {
+            const daily = ChallengeService.generateDailyChallenges("", progress.activeChallenges, progress);
+            if (daily.length > 0) {
+                setUserProgress({
+                    ...progress,
+                    activeChallenges: [...progress.activeChallenges, ...daily]
+                });
+            }
+        }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showChallenges) {
+        checkDailyReset();
+    }
+  }, [showChallenges, checkDailyReset]);
+
   // --- Initialization ---
   useEffect(() => {
     const initAudio = async () => {
@@ -283,18 +326,11 @@ const GameCanvas: React.FC = () => {
         gameStateRef.current.highScore = scores[0].score;
     }
 
-    // Initialize Challenges
-    const today = new Date().toISOString().split('T')[0];
-    if (userProgressRef.current.lastChallengeDate !== today) {
-        const daily = ChallengeService.generateDailyChallenges(userProgressRef.current.lastChallengeDate, []);
-        const repeatable = ChallengeService.generateRepeatableChallenges(3, daily);
-        const newProgress = {
-            ...userProgressRef.current,
-            activeChallenges: [...daily, ...repeatable],
-            lastChallengeDate: today
-        };
-        setUserProgress(newProgress);
-    }
+    // Initial check
+    checkDailyReset();
+
+    // Periodic check every minute for midnight crossing
+    const resetInterval = setInterval(checkDailyReset, 60000);
 
     const handleResize = () => {
       if (gameStateRef.current.isReplay) return;
@@ -349,9 +385,10 @@ const GameCanvas: React.FC = () => {
     return () => {
       window.removeEventListener('resize', handleResize);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(resetInterval);
       audioManager.stopMusic();
     };
-  }, []);
+  }, [checkDailyReset]);
 
   const handleSplashClick = async () => {
       // Ensure audio context is resumed on user gesture

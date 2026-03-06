@@ -4,10 +4,18 @@ import { CHALLENGE_TEMPLATES, PROGRESSION_MISSIONS } from '../constants';
 import { RNG } from './rng';
 
 export const ChallengeService = {
-    generateDailyChallenges: (lastDate: string, existing: Challenge[] = [], progress?: UserProgress): Challenge[] => {
+    getTodayString: (): string => {
         const d = new Date();
-        const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        if (lastDate === today) return [];
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+
+    generateDailyChallenges: (lastDate: string, existing: Challenge[] = [], progress?: UserProgress): Challenge[] => {
+        const today = ChallengeService.getTodayString();
+        if (lastDate === today) {
+            // If we already have daily missions for today, don't generate more
+            const hasTodayMissions = existing.some(c => c.type === 'daily' && c.date === today);
+            if (hasTodayMissions) return [];
+        }
 
         const challenges: Challenge[] = [];
         const combinedExisting = [...existing];
@@ -106,8 +114,7 @@ export const ChallengeService = {
             const t = RNG.choose(availableTemplates);
             // Keep same rarity? Or randomize? Let's randomize rarity slightly weighted to current
             const rarity = challenge.rarity || 'common';
-            const d = new Date();
-            const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const today = ChallengeService.getTodayString();
             newChallenge = ChallengeService.createChallenge(t, 'daily', rarity, today);
         } else {
             // Repeatable
